@@ -1,0 +1,6 @@
+*.onnx
+*.bin
+__pycache__
+.env.local
+.venv
+.env

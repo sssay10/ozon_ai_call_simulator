@@ -1,0 +1,7 @@
+.venv
+__pycache__
+*.pyc
+.git
+README.md
+# Models are mounted at runtime from host
+tone_models

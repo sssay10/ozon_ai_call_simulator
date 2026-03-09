@@ -1,0 +1,16 @@
+:80 {
+	encode gzip
+
+	# Reverse proxy all HTTP traffic to the Next.js frontend container.
+	# For local development, http://localhost is treated as a secure context
+	# by browsers, so microphone access will work.
+	reverse_proxy frontend:3000
+}
+
+# When you go public, replace :80 above with your domain and enable TLS, e.g.:
+# example.com {
+#     encode gzip
+#     reverse_proxy frontend:3000
+#     tls you@example.com
+# }
+

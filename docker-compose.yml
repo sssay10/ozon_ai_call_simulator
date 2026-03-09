@@ -1,0 +1,168 @@
+# Project root: STT, TTS, auth, LiveKit server, Postgres, and judge_service.
+# Agent (agent-starter-python) runs separately; set STT_SERVICE_URL, TTS_SERVICE_URL, DATABASE_URL, JUDGE_SERVICE_URL.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dialogue-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-dialogue}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-dialogue}"
+      POSTGRES_DB: "${POSTGRES_DB:-dialogues}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./agent_service/scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+
+  stt_service:
+    build:
+      context: ./stt_service
+      dockerfile: Dockerfile
+    container_name: stt-service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      TONE_MODELS_DIR: /models
+    volumes:
+      # T-one model files live in stt_service/tone_models
+      - ./stt_service/tone_models:/models:ro
+
+  tts_service:
+    build:
+      context: ./tts_service
+      dockerfile: Dockerfile
+    container_name: tts-service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+
+  judge_service:
+    build:
+      context: ./judge_service
+      dockerfile: Dockerfile
+    container_name: judge-service
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: "postgresql://dialogue:dialogue@postgres:5432/dialogues"
+      LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
+      OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
+
+  auth_service:
+    build:
+      context: ./auth_service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: "postgresql://dialogue:dialogue@postgres:5432/dialogues"
+      AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-dev-auth-secret-change-me-32-bytes}"
+      AUTH_TOKEN_TTL_HOURS: "${AUTH_TOKEN_TTL_HOURS:-24}"
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit-server
+    restart: unless-stopped
+    command: >
+      --dev
+      --node-ip=0.0.0.0
+      --config=/etc/livekit/livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "62000-62010:62000-62010/udp"
+    environment:
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-secret}"
+    volumes:
+      - ./livekit/livekit.yaml:/etc/livekit/livekit.yaml:ro
+
+  agent_service:
+    build:
+      context: ./agent_service
+      dockerfile: Dockerfile
+    container_name: agent-service
+    restart: unless-stopped
+    depends_on:
+      - livekit
+      - stt_service
+      - tts_service
+      - postgres
+      - judge_service
+    environment:
+      # LiveKit connection for the agent worker (uses the self-hosted LiveKit instance)
+      LIVEKIT_URL: "ws://livekit:7880"
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-secret}"
+
+      # STT / TTS services inside the Compose network
+      STT_SERVICE_URL: "http://stt_service:8001"
+      TTS_SERVICE_URL: "http://tts_service:8002"
+
+      # Optional dialogue logging + automatic judging
+      DATABASE_URL: "postgresql://dialogue:dialogue@postgres:5432/dialogues"
+      JUDGE_SERVICE_URL: "http://judge_service:8003"
+
+      # LLM configuration (matches judge_service defaults)
+      LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
+      OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    depends_on:
+      - auth_service
+      - judge_service
+      - livekit
+    environment:
+      # Auth & judge backends inside the Compose network
+      AUTH_SERVICE_URL: "http://auth_service:8004"
+      JUDGE_SERVICE_URL: "http://judge_service:8003"
+
+      # LiveKit connection used by the /api/token route
+      LIVEKIT_URL: "ws://livekit:7880"
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-secret}"
+
+      # Optional: agent name for dispatch (can be overridden via real env)
+      AGENT_NAME: "${AGENT_NAME:-}"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

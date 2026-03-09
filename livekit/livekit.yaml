@@ -1,0 +1,14 @@
+port: 7880
+rtc:
+  port_range_start: 62000
+  port_range_end: 62010
+  use_external_ip: false
+
+keys:
+  # Dev defaults; override via env for real use.
+  devkey: secret
+
+room:
+  enabled_codecs:
+    - mime: audio/opus
+

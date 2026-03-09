@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: judge-service
+Version: 0.1.0
+Summary: Judge service for evaluating training sessions
+Requires-Python: <3.13,>=3.11
+Requires-Dist: fastapi>=0.122.0
+Requires-Dist: uvicorn[standard]>=0.38.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: httpx>=0.24.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: ollama>=0.1.0
+Requires-Dist: langchain>=0.3.0
+Requires-Dist: langchain-openai>=0.2.0
+Requires-Dist: langchain-community>=0.3.0

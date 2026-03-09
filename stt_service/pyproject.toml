@@ -1,0 +1,11 @@
+[project]
+name = "stt-service"
+version = "0.1.0"
+description = "STT service (T-one); single model instance per process"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "numpy>=1.24",
+    "tone @ git+https://github.com/voicekit-team/T-one.git",
+]

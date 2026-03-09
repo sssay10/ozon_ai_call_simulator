@@ -1,0 +1,13 @@
+[project]
+name = "tts-service"
+version = "0.1.0"
+description = "TTS service (Silero); single model instance per process"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "numpy>=1.24",
+    "torch>=2.0",
+    "omegaconf>=2.3",  # required by snakers4/silero-models (torch.hub)
+    "scipy>=1.10",     # required by snakers4/silero-models (torch.hub)
+]
