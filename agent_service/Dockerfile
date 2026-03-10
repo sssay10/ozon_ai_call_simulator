@@ -58,7 +58,7 @@ RUN chown -R appuser:appuser /app
 # This improves security by not running as root
 USER appuser
 
-# Run the application using UV
-# UV will activate the virtual environment and run the agent.
-# The "start" command tells the worker to connect to LiveKit and begin waiting for jobs.
-CMD ["uv", "run", "src/agent.py", "start"]
+# Run the application using UV.
+# On container start we first ensure required models are downloaded,
+# then start the agent worker in "start" mode.
+CMD ["sh", "-lc", "uv run src/agent.py download-files && uv run src/agent.py start"]
