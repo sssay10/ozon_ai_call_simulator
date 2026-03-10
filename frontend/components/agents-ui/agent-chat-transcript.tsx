@@ -59,10 +59,22 @@ export function AgentChatTranscript({
           const locale = navigator?.language ?? 'en-US';
           const messageOrigin = from?.isLocal ? 'user' : 'assistant';
           const time = new Date(timestamp);
-          const title = time.toLocaleTimeString(locale, { timeStyle: 'full' });
+          const title = time.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'medium' });
+          const timeLabel = time.toLocaleTimeString(locale, {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
 
           return (
             <Message key={id} title={title} from={messageOrigin}>
+              <div
+                className={`text-muted-foreground mb-1 text-[11px] ${
+                  messageOrigin === 'user' ? 'self-end text-right' : 'self-start'
+                }`}
+              >
+                {timeLabel}
+              </div>
               <MessageContent>
                 <MessageResponse>{message}</MessageResponse>
               </MessageContent>

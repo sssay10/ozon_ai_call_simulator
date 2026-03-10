@@ -106,6 +106,7 @@ export function SessionResultView({
   const [data, setData] = useState<SessionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
 
   const loadResults = useCallback(async () => {
     try {
@@ -252,6 +253,18 @@ export function SessionResultView({
                     )}
                     {data.transcript.map((turn, idx) => {
                       const messageFrom = roleToMessageFrom(turn.role);
+                      const createdAt = turn.created_at ? new Date(turn.created_at) : null;
+                      const timeLabel =
+                        createdAt?.toLocaleTimeString(locale, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        }) ?? null;
+                      const timeTitle =
+                        createdAt?.toLocaleString(locale, {
+                          dateStyle: 'medium',
+                          timeStyle: 'medium',
+                        }) ?? null;
 
                       return (
                         <Message key={`${turn.role}-${idx}`} from={messageFrom}>
@@ -259,8 +272,14 @@ export function SessionResultView({
                             className={`text-muted-foreground mb-1 text-[11px] uppercase ${
                               messageFrom === 'user' ? 'self-end text-right' : 'self-start'
                             }`}
+                            title={timeTitle ?? undefined}
                           >
                             {roleToLabel(turn.role)}
+                            {timeLabel && (
+                              <span className="text-muted-foreground/80 ml-2 normal-case">
+                                {timeLabel}
+                              </span>
+                            )}
                           </div>
                           <MessageContent
                             className={
