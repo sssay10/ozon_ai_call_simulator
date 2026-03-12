@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -11,6 +11,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 
 from evaluation_models import EvaluationResponse
 from scenarios import get_scenario_config
+from rag.retriever import SimpleJudgeRetriever
 
 BASE_DIR = Path(__file__).resolve().parent
 PROMPT_TEMPLATE_PATH = BASE_DIR / "judge_prompt.txt"
@@ -32,6 +33,7 @@ class LLMJudge:
         ollama_model = os.getenv("OLLAMA_MODEL", "qwen2:7b-instruct-q4_K_M")
 
         self.prompt_template = self._load_prompt_template()
+        self.retriever = SimpleJudgeRetriever()
 
         if llm_provider == "ollama":
             try:
@@ -76,7 +78,12 @@ class LLMJudge:
         with open(PROMPT_TEMPLATE_PATH, "r", encoding="utf-8") as f:
             return f.read()
 
-    def _build_prompt(self, transcript: List[Dict[str, str]], scenario_config: Any) -> str:
+    def _build_prompt(
+        self,
+        transcript: List[Dict[str, str]],
+        scenario_config: Any,
+        retrieved_context: str = "",
+    ) -> str:
         transcript_str = "\n".join(
             f"{(msg.get('role') or '').upper()}: {msg.get('text') or ''}"
             for msg in transcript
@@ -86,8 +93,6 @@ class LLMJudge:
         compliance_must_avoid = "\n".join(f"- {item}" for item in (scenario_config.compliance_must_avoid or []))
         relevant_criteria_str = ", ".join(scenario_config.relevant_criteria or [])
 
-        # ВАЖНО: если ты добавляешь в prompt JSON-пример, там должны быть {{ }} (double braces),
-        # иначе .format() упадет KeyError.
         prompt = self.prompt_template.format(
             scenario_title=scenario_config.title,
             scenario_description=scenario_config.description,
@@ -97,6 +102,7 @@ class LLMJudge:
             compliance_must_have=compliance_must_have,
             compliance_must_avoid=compliance_must_avoid,
             relevant_criteria=relevant_criteria_str,
+            retrieved_context=retrieved_context or "Контекст не найден.",
         )
         return prompt
 
@@ -109,7 +115,6 @@ class LLMJudge:
 
     @staticmethod
     def _has_bank_word(text: str) -> bool:
-        # "банк", "банка", "банке", "банком" как отдельное слово
         return re.search(r"\bбанк(а|у|ом|е)?\b", (text or "").lower()) is not None
 
     @staticmethod
@@ -119,7 +124,6 @@ class LLMJudge:
 
     @staticmethod
     def _ensure_politeness(scores: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
-        # Если LLM не вернул politeness — ставим 5 (нейтрально) для демо-стабильности
         val = scores.get("politeness", None)
         if val is None:
             scores["politeness"] = 5
@@ -135,7 +139,6 @@ class LLMJudge:
 
     @staticmethod
     def _recompute_total_score(scores: Dict[str, Any], relevant_criteria: List[str], critical_errors: List[str]) -> float:
-        # Считаем total_score на сервере (стабильно для демки)
         rel = relevant_criteria or []
 
         applicable = 0
@@ -154,7 +157,6 @@ class LLMJudge:
 
         total = (0.8 * binary + 0.2 * pol) * 10.0
 
-        # Штраф за критические ошибки (но НЕ обнуляем)
         if critical_errors:
             total = max(0.0, total - 3.0)
 
@@ -163,14 +165,23 @@ class LLMJudge:
     def evaluate(self, transcript: List[Dict[str, str]], scenario_id: str = "novice_ip_no_account_easy") -> Dict[str, Any]:
         try:
             scenario_config = get_scenario_config(scenario_id)
-            prompt_text = self._build_prompt(transcript=transcript, scenario_config=scenario_config)
 
-            # --- LLM call (structured output) ---
+            retrieved_context = self.retriever.retrieve(
+                transcript=transcript,
+                scenario_config=scenario_config,
+            )
+            logger.info("RAG retrieved context length=%s for scenario_id=%s", len(retrieved_context), scenario_id)
+
+            prompt_text = self._build_prompt(
+                transcript=transcript,
+                scenario_config=scenario_config,
+                retrieved_context=retrieved_context,
+            )
+
             evaluation = None
 
             if self.use_structured_output:
                 try:
-                    # Escape braces in prompt_text to prevent LangChain from parsing them as variables
                     escaped_prompt_text = prompt_text.replace("{", "{{").replace("}", "}}")
                     prompt = ChatPromptTemplate.from_messages([
                         ("system", "You are a strict evaluator. Follow the instructions precisely."),
@@ -188,7 +199,6 @@ class LLMJudge:
                     format_instructions = self.output_parser.get_format_instructions()
                     full_prompt_text = prompt_text + "\n\n" + format_instructions
 
-                    # Escape braces in prompt_text to prevent LangChain from parsing them as variables
                     escaped_full_prompt_text = full_prompt_text.replace("{", "{{").replace("}", "}}")
                     prompt = ChatPromptTemplate.from_messages([
                         ("system", "You are a strict evaluator. Follow the instructions precisely."),
@@ -209,11 +219,9 @@ class LLMJudge:
                         evaluation = self.output_parser.parse(content)
 
             else:
-                # Ollama: manual parsing
                 format_instructions = self.output_parser.get_format_instructions()
                 full_prompt_text = prompt_text + "\n\n" + format_instructions
 
-                # Escape braces in prompt_text to prevent LangChain from parsing them as variables
                 escaped_full_prompt_text = full_prompt_text.replace("{", "{{").replace("}", "}}")
                 prompt = ChatPromptTemplate.from_messages([
                     ("system", "You are a strict evaluator. Follow the instructions precisely."),
@@ -243,22 +251,18 @@ class LLMJudge:
 
             result = evaluation.model_dump()
 
-            # --- Add metadata ---
             result["scenario_id"] = scenario_id
             result["relevant_criteria"] = scenario_config.relevant_criteria or []
             result["model_used"] = getattr(self.llm, "model_name", getattr(self.llm, "model", "unknown"))
             result["judge_backend"] = self.backend_name
-            # оставляем для совместимости
             result["client_profile"] = result.get("client_profile", {}) or {}
 
             scores = result.get("scores") or {}
             critical_errors = result.get("critical_errors") or []
 
-            # --- DEBUG: greeting utterance ---
             greeting_utt = self._first_manager_utterance(transcript)
             logger.info("DEBUG first manager utterance: %r", greeting_utt)
 
-            # --- FIX 1: убираем галлюцинации про 'банк' если его нет в первой реплике ---
             has_bank_in_greeting = self._has_bank_word(greeting_utt)
 
             if critical_errors and (not has_bank_in_greeting):
@@ -267,17 +271,13 @@ class LLMJudge:
                 if len(before) != len(critical_errors):
                     logger.info("DEBUG removed hallucinated 'банк' critical_errors. greeting=%r", greeting_utt)
 
-            # --- FIX 2: если greeting_correct=False только из-за 'банк', а 'банк' в greeting нет —
-            # ставим True, если видим самопрезентацию + 'озон' (для демки стабильнее)
             if scores.get("greeting_correct") is False and (not has_bank_in_greeting):
                 if self._looks_like_self_intro(greeting_utt):
                     scores["greeting_correct"] = True
                     logger.info("DEBUG greeting_correct corrected by deterministic check. greeting=%r", greeting_utt)
 
-            # --- FIX 3: politeness всегда есть ---
-            scores, pol = self._ensure_politeness(scores)
+            scores, _ = self._ensure_politeness(scores)
 
-            # --- FIX 4: серверный пересчёт total_score (стабильно) ---
             relevant = result.get("relevant_criteria") or []
             total = self._recompute_total_score(scores=scores, relevant_criteria=relevant, critical_errors=critical_errors)
 
@@ -305,4 +305,4 @@ class LLMJudge:
                 "model_used": "unknown",
                 "judge_backend": "unknown",
             }
-
+        

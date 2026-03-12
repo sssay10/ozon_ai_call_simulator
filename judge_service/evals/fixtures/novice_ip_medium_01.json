@@ -1,0 +1,58 @@
+{
+  "id": "novice_ip_medium_01",
+  "scenario_id": "novice_ip_no_account_easy",
+  "transcript": [
+    {
+      "role": "manager",
+      "text": "Здравствуйте, это Анна из Ozon."
+    },
+    {
+      "role": "client",
+      "text": "Здравствуйте."
+    },
+    {
+      "role": "manager",
+      "text": "Я звоню по расчётному счёту для продавцов Ozon. Для новых продавцов счёт на старте бесплатный."
+    },
+    {
+      "role": "client",
+      "text": "А что нужно для открытия?"
+    },
+    {
+      "role": "manager",
+      "text": "Понадобятся документы для открытия счёта."
+    },
+    {
+      "role": "client",
+      "text": "Я ИП."
+    },
+    {
+      "role": "manager",
+      "text": "Хорошо, тогда можем позже подробнее обсудить."
+    },
+    {
+      "role": "client",
+      "text": "Хорошо."
+    },
+    {
+      "role": "manager",
+      "text": "Спасибо за время, хорошего дня."
+    }
+  ],
+  "expected": {
+    "scores": {
+      "greeting_correct": true,
+      "congratulation_given": false,
+      "compliance_free_account_ip": true,
+      "closing_success": false
+    },
+    "soft_checks": {
+      "compliance_account_docs_ip": "false_or_null",
+      "verification_agreement_correctly_understood": "null_or_false"
+    },
+    "critical_errors": [],
+    "min_total_score": 4.5,
+    "max_total_score": 7.5
+  }
+}
+

@@ -1,0 +1,63 @@
+{
+  "id": "novice_ip_good_01",
+  "scenario_id": "novice_ip_no_account_easy",
+  "transcript": [
+    {
+      "role": "manager",
+      "text": "Здравствуйте, это Анна из Ozon. Поздравляю вас с регистрацией на Ozon."
+    },
+    {
+      "role": "client",
+      "text": "Спасибо."
+    },
+    {
+      "role": "manager",
+      "text": "Я звоню по поводу расчётного счёта для новых продавцов. Для новых продавцов Ozon счёт бесплатный на старте."
+    },
+    {
+      "role": "client",
+      "text": "Понял."
+    },
+    {
+      "role": "manager",
+      "text": "Подскажите, пожалуйста, у вас ИП? И есть ли сотрудники?"
+    },
+    {
+      "role": "client",
+      "text": "Да, ИП, сотрудников нет."
+    },
+    {
+      "role": "manager",
+      "text": "Хорошо. Для открытия счёта ИП нужен только оригинал паспорта РФ."
+    },
+    {
+      "role": "client",
+      "text": "Хорошо."
+    },
+    {
+      "role": "manager",
+      "text": "Правильно понимаю, что вам удобно обсудить следующий шаг по открытию счёта и получить подтверждение сообщением?"
+    },
+    {
+      "role": "client",
+      "text": "Да, удобно."
+    },
+    {
+      "role": "manager",
+      "text": "Тогда предлагаю завтра в 15:00 созвониться ещё раз, а подтверждение я направлю вам сообщением в Telegram."
+    }
+  ],
+  "expected": {
+    "scores": {
+      "greeting_correct": true,
+      "congratulation_given": true,
+      "compliance_free_account_ip": true,
+      "compliance_account_docs_ip": true,
+      "verification_agreement_correctly_understood": true,
+      "closing_success": true
+    },
+    "critical_errors": [],
+    "min_total_score": 8.0
+  }
+}
+
