@@ -21,14 +21,14 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Install build dependencies required for Python packages with native extensions
-# gcc: C compiler needed for building Python packages with C extensions
-# python3-dev: Python development headers needed for compilation
-# We clean up the apt cache after installation to keep the image size down
+# Install build dependencies and runtime libs for LiveKit agents native FFI
+# gcc, g++, python3-dev: for Python packages with C extensions
+# libglib2.0-0: required by livekit-agents FFI (libgobject-2.0.so.0)
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     python3-dev \
+    libglib2.0-0 \
   && rm -rf /var/lib/apt/lists/*
 
 # Create a new directory for our application code

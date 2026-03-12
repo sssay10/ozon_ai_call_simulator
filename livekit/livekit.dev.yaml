@@ -1,0 +1,19 @@
+port: 7880
+
+rtc:
+  # Narrow UDP port range for local development.
+  port_range_start: 62000
+  port_range_end: 62010
+
+  # Let LiveKit auto-detect the correct IP inside Docker; no hard-coded public IP.
+  use_external_ip: false
+
+
+keys:
+  # Match LIVEKIT_API_KEY / LIVEKIT_API_SECRET defaults in docker-compose.yml
+  devkey: secret
+
+room:
+  enabled_codecs:
+    - mime: audio/opus
+
