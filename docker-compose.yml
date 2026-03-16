@@ -50,13 +50,13 @@ services:
     ports:
       - "8003:8003"
     environment:
-      DATABASE_URL: "postgresql://dialogue:dialogue@postgres:5432/dialogues"
+      DATABASE_URL: "${INTERNAL_DATABASE_URL:-postgresql://dialogue:dialogue@postgres:5432/dialogues}"
       LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
       OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
-      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
-      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
+      OPENROUTER_MODEL: "${JUDGE_OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      OLLAMA_BASE_URL: "${JUDGE_OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      OLLAMA_MODEL: "${JUDGE_OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
 
   auth_service:
     build:
@@ -69,7 +69,7 @@ services:
     ports:
       - "8004:8004"
     environment:
-      DATABASE_URL: "postgresql://dialogue:dialogue@postgres:5432/dialogues"
+      DATABASE_URL: "${INTERNAL_DATABASE_URL:-postgresql://dialogue:dialogue@postgres:5432/dialogues}"
       AUTH_JWT_SECRET: "${AUTH_JWT_SECRET:-dev-auth-secret-change-me-32-bytes}"
       AUTH_TOKEN_TTL_HOURS: "${AUTH_TOKEN_TTL_HOURS:-24}"
 
@@ -105,26 +105,26 @@ services:
       - judge_service
     environment:
       # LiveKit connection for the agent worker (uses the self-hosted LiveKit instance directly on the docker network)
-      LIVEKIT_URL: "ws://livekit:7880"
+      LIVEKIT_URL: "${INTERNAL_LIVEKIT_URL_AGENT:-ws://livekit:7880}"
       LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
       LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-secret}"
 
       # STT / TTS services inside the Compose network
-      STT_SERVICE_URL: "http://stt_service:8001"
-      TTS_SERVICE_URL: "http://tts_service:8002"
+      STT_SERVICE_URL: "${INTERNAL_STT_SERVICE_URL:-http://stt_service:8001}"
+      TTS_SERVICE_URL: "${INTERNAL_TTS_SERVICE_URL:-http://tts_service:8002}"
 
       # Optional dialogue logging + automatic judging
-      DATABASE_URL: "postgresql://dialogue:dialogue@postgres:5432/dialogues"
-      JUDGE_SERVICE_URL: "http://judge_service:8003"
+      DATABASE_URL: "${INTERNAL_DATABASE_URL:-postgresql://dialogue:dialogue@postgres:5432/dialogues}"
+      JUDGE_SERVICE_URL: "${INTERNAL_JUDGE_SERVICE_URL:-http://judge_service:8003}"
 
       # LLM configuration (matches judge_service defaults)
       LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
       OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
       OPENAI_API_KEY: "${OPENROUTER_API_KEY:-}"
-      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
-      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
+      OPENROUTER_MODEL: "${AGENT_OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      OLLAMA_BASE_URL: "${AGENT_OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+      OLLAMA_MODEL: "${AGENT_OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
 
   frontend:
     build:
@@ -138,16 +138,13 @@ services:
       - livekit
     environment:
       # Auth & judge backends inside the Compose network
-      AUTH_SERVICE_URL: "http://auth_service:8004"
-      JUDGE_SERVICE_URL: "http://judge_service:8003"
+      AUTH_SERVICE_URL: "${INTERNAL_AUTH_SERVICE_URL:-http://auth_service:8004}"
+      JUDGE_SERVICE_URL: "${INTERNAL_JUDGE_SERVICE_URL:-http://judge_service:8003}"
 
       # LiveKit connection used by the /api/token route (browser connects via HTTPS/WSS through Caddy)
-      LIVEKIT_URL: "wss://daily-inspirational-quotes.online"
+      LIVEKIT_URL: "${LIVEKIT_URL:-wss://daily-inspirational-quotes.online}"
       LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
       LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-secret}"
-
-      # Optional: agent name for dispatch (can be overridden via real env)
-      AGENT_NAME: "${AGENT_NAME:-}"
 
   caddy:
     image: caddy:2-alpine

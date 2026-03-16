@@ -25,7 +25,7 @@ export interface AppConfig {
   audioVisualizerRadialRadius?: number;
   audioVisualizerWaveLineWidth?: number;
 
-  // agent dispatch configuration
+  // agent dispatch configuration (not used in this project)
   agentName?: string;
 
   // LiveKit Cloud Sandbox configuration
@@ -65,7 +65,7 @@ export const APP_CONFIG_DEFAULTS: AppConfig = {
   // audioVisualizerType: 'aura',
 
   // agent dispatch configuration
-  agentName: process.env.AGENT_NAME ?? undefined,
+  agentName: undefined,
 
   // LiveKit Cloud Sandbox configuration
   sandboxId: undefined,

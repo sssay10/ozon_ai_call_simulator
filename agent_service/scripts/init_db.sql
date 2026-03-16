@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS judge_results (
     feedback_positive JSONB NOT NULL DEFAULT '[]'::jsonb,
     feedback_improvement JSONB NOT NULL DEFAULT '[]'::jsonb,
     recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
-    timecodes JSONB NOT NULL DEFAULT '[]'::jsonb,
     client_profile JSONB NOT NULL DEFAULT '{}'::jsonb,
     relevant_criteria JSONB NOT NULL DEFAULT '[]'::jsonb,
     model_used TEXT NOT NULL DEFAULT 'unknown',

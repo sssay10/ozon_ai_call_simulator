@@ -79,7 +79,6 @@ class JudgeResultResponse(BaseModel):
     feedback_positive: list[str] = Field(default_factory=list)
     feedback_improvement: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
-    timecodes: list[Any] = Field(default_factory=list)
     client_profile: dict[str, Any] = Field(default_factory=dict)
     relevant_criteria: list[str] = Field(default_factory=list)
     model_used: str = "unknown"
@@ -177,7 +176,6 @@ def _serialize_judge_result(row: JudgeResult | None) -> JudgeResultResponse | No
         feedback_positive=row.feedback_positive or [],
         feedback_improvement=row.feedback_improvement or [],
         recommendations=row.recommendations or [],
-        timecodes=row.timecodes or [],
         client_profile=row.client_profile or {},
         relevant_criteria=row.relevant_criteria or [],
         model_used=row.model_used or "unknown",

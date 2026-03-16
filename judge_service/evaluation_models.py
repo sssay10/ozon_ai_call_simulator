@@ -13,4 +13,3 @@ class EvaluationResponse(BaseModel):
     feedback_positive: List[str] = Field(default_factory=list, description="Positive feedback points")
     feedback_improvement: List[str] = Field(default_factory=list, description="Areas for improvement")
     recommendations: List[str] = Field(default_factory=list, description="Specific recommendations")
-    timecodes: List[Dict] = Field(default_factory=list, description="Timecodes for errors/feedback")

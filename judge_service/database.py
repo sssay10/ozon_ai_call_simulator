@@ -85,7 +85,6 @@ class JudgeResult(Base):
     feedback_positive: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     feedback_improvement: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     recommendations: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
-    timecodes: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     client_profile: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     relevant_criteria: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     model_used: Mapped[str] = mapped_column(Text, nullable=False, default="unknown")
@@ -365,7 +364,6 @@ class Database:
             row.feedback_positive = evaluation.get("feedback_positive") or []
             row.feedback_improvement = evaluation.get("feedback_improvement") or []
             row.recommendations = evaluation.get("recommendations") or []
-            row.timecodes = evaluation.get("timecodes") or []
             row.client_profile = evaluation.get("client_profile") or {}
             row.relevant_criteria = evaluation.get("relevant_criteria") or []
             row.model_used = evaluation.get("model_used") or "unknown"
