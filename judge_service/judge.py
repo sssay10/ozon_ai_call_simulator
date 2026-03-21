@@ -274,6 +274,16 @@ class LLMJudge:
 
         return round(total, 1)
 
+    @staticmethod
+    def _ensure_all_relevant_scores_present(
+        scores: Dict[str, Any],
+        relevant_criteria: List[str],
+    ) -> Dict[str, Any]:
+        scores = scores or {}
+        for key in relevant_criteria or []:
+            scores.setdefault(key, None)
+        return scores
+
     def _apply_deterministic_score_fixes(
         self,
         result: Dict[str, Any],
@@ -335,6 +345,76 @@ class LLMJudge:
             )
 
         result["scores"] = scores
+        return result
+
+    def _apply_accounting_semantic_fix(
+        self,
+        result: Dict[str, Any],
+        transcript: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        scores = result.get("scores") or {}
+        feedback_improvement = result.get("feedback_improvement") or []
+        recommendations = result.get("recommendations") or []
+        relevant_criteria = result.get("relevant_criteria") or []
+
+        transcript_text = " ".join((m.get("text") or "").lower() for m in transcript)
+        client_profile = result.get("client_profile") or {}
+
+        has_ip_signal = any(
+            x in transcript_text
+            for x in ["ип", "индивидуальный предприниматель"]
+        )
+        has_no_employees_signal = any(
+            x in transcript_text
+            for x in ["нет сотрудников", "без сотрудников", "работаю один", "сотрудников пока нет"]
+        )
+        has_accounting_signal = any(
+            x in transcript_text
+            for x in [
+                "бухгалтер",
+                "бухгалтерия",
+                "онлайн-бухгалтерия",
+                "бухгалтерское обслуживание",
+                "будем делать бухгалтерию",
+                "бухгалтерия в подарок",
+                "обслуживание в подарок",
+            ]
+        )
+
+        if (
+            "compliance_buh_free_usn_income" in relevant_criteria
+            and has_accounting_signal
+            and (has_ip_signal or client_profile.get("client_type") == "ip")
+            and (has_no_employees_signal or client_profile.get("has_employees") is False)
+        ):
+            scores["compliance_buh_free_usn_income"] = True
+            logger.info(
+                "DEBUG semantic accounting fix: compliance_buh_free_usn_income=True"
+            )
+
+            feedback_improvement = self._remove_items_by_patterns(
+                feedback_improvement,
+                [
+                    "не было упоминания о бесплатной онлайн-бухгалтерии",
+                    "не было упоминания бухгалтерии",
+                    "не предложил бухгалтерию",
+                    "не упомянул бухгалтерию",
+                    "не было упоминания о бухгалтерии",
+                ],
+            )
+
+            recommendations = self._remove_items_by_patterns(
+                recommendations,
+                [
+                    "предложить бесплатную онлайн-бухгалтерию",
+                    "предложить бухгалтерию",
+                    "упомянуть бухгалтерию",
+                ],
+            )
+
+        result["scores"] = scores
+        result["feedback_improvement"] = feedback_improvement
+        result["recommendations"] = recommendations
         return result
 
     def _apply_profile_guardrails(
@@ -706,6 +786,10 @@ class LLMJudge:
             result["client_profile"] = result.get("client_profile", {}) or {}
 
             scores = result.get("scores") or {}
+            scores = self._ensure_all_relevant_scores_present(
+                scores=scores,
+                relevant_criteria=result["relevant_criteria"],
+            )
             critical_errors = result.get("critical_errors") or []
 
             greeting_utt = self._first_manager_utterance(transcript)
@@ -735,9 +819,14 @@ class LLMJudge:
 
             result = self._apply_deterministic_score_fixes(result=result, transcript=transcript)
             result = self._apply_profile_guardrails(result=result, transcript=transcript)
+            result = self._apply_accounting_semantic_fix(result=result, transcript=transcript)
             result = self._apply_feedback_consistency(result=result)
 
             scores = result.get("scores") or {}
+            scores = self._ensure_all_relevant_scores_present(
+                scores=scores,
+                relevant_criteria=result.get("relevant_criteria") or [],
+            )
             critical_errors = result.get("critical_errors") or []
 
             scores, _ = self._ensure_politeness(scores)
@@ -772,4 +861,5 @@ class LLMJudge:
                 "model_used": "unknown",
                 "judge_backend": "unknown",
             }
+        
         
