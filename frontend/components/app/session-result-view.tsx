@@ -24,7 +24,6 @@ type JudgeResult = {
   feedback_positive: string[];
   feedback_improvement: string[];
   recommendations: string[];
-  timecodes: unknown[];
   client_profile: Record<string, unknown>;
   relevant_criteria: string[];
   model_used: string;

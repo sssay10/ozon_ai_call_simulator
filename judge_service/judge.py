@@ -854,7 +854,6 @@ class LLMJudge:
                 "feedback_positive": [],
                 "feedback_improvement": [],
                 "recommendations": [],
-                "timecodes": [],
                 "client_profile": {},
                 "scenario_id": scenario_id,
                 "relevant_criteria": [],

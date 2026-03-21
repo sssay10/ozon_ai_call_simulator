@@ -179,11 +179,6 @@ You'll also need to configure your LiveKit credentials in `.env.local` (copy `.e
 LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
 LIVEKIT_URL=https://your-livekit-server-url
-
-# Agent dispatch (https://docs.livekit.io/agents/server/agent-dispatch)
-# Leave AGENT_NAME blank to enable automatic dispatch
-# Provide an agent name to enable explicit dispatch
-AGENT_NAME=
 ```
 
 These are required for the voice agent functionality to work with your LiveKit project.
