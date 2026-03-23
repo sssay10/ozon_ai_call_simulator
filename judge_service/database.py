@@ -102,6 +102,30 @@ class JudgeResult(Base):
     session: Mapped[DialogueSession] = relationship(back_populates="judge_result")
 
 
+class TrainingScenario(Base):
+    __tablename__ = "training_scenarios"
+    __table_args__ = (UniqueConstraint("product", "archetype", "difficulty_level", name="uq_training_scenarios_product_archetype_difficulty"),)
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    product: Mapped[str] = mapped_column(Text, nullable=False)
+    archetype: Mapped[str] = mapped_column(Text, nullable=False)
+    difficulty_level: Mapped[str] = mapped_column(Text, nullable=False)
+    client_role: Mapped[str] = mapped_column(Text, nullable=False)
+    archetype_description: Mapped[str] = mapped_column(Text, nullable=False)
+    scenario_description: Mapped[str] = mapped_column(Text, nullable=False)
+    language_and_format_instructions: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Database:
     """Database connection and operations manager for judge service."""
 
@@ -234,6 +258,75 @@ class Database:
                     """
                 )
             )
+            await conn.execute(
+                text(
+                    """
+                    CREATE TABLE IF NOT EXISTS training_scenarios (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        name TEXT NOT NULL,
+                        product TEXT NOT NULL DEFAULT 'rko',
+                        archetype TEXT NOT NULL DEFAULT 'novice',
+                        difficulty_level TEXT NOT NULL DEFAULT '1',
+                        client_role TEXT NOT NULL,
+                        archetype_description TEXT NOT NULL,
+                        scenario_description TEXT NOT NULL,
+                        language_and_format_instructions TEXT NOT NULL,
+                        created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                    )
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    ALTER TABLE training_scenarios ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'rko'
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    ALTER TABLE training_scenarios ADD COLUMN IF NOT EXISTS archetype TEXT NOT NULL DEFAULT 'novice'
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    ALTER TABLE training_scenarios ADD COLUMN IF NOT EXISTS difficulty_level TEXT NOT NULL DEFAULT '1'
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1
+                            FROM pg_constraint
+                            WHERE conname = 'uq_training_scenarios_product_archetype_difficulty'
+                        ) THEN
+                            ALTER TABLE training_scenarios
+                            ADD CONSTRAINT uq_training_scenarios_product_archetype_difficulty
+                            UNIQUE (product, archetype, difficulty_level);
+                        END IF;
+                    END
+                    $$;
+                    """
+                )
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_training_scenarios_updated_at
+                    ON training_scenarios(updated_at DESC)
+                    """
+                )
+            )
+            await self._seed_training_scenarios(conn)
             await conn.run_sync(Base.metadata.create_all)
 
         self._initialized = True
@@ -452,3 +545,192 @@ class Database:
                 }
             )
         return sessions
+
+    async def list_training_scenarios(self) -> list[dict[str, Any]]:
+        async_session = self._require_sessionmaker()
+        async with async_session() as session:
+            result = await session.execute(
+                select(TrainingScenario).order_by(
+                    desc(TrainingScenario.updated_at),
+                    desc(TrainingScenario.created_at),
+                )
+            )
+            rows = result.scalars().all()
+
+        return [
+            {
+                "id": str(row.id),
+                "name": row.name,
+                "product": row.product,
+                "archetype": row.archetype,
+                "difficulty_level": row.difficulty_level,
+                "client_role": row.client_role,
+                "archetype_description": row.archetype_description,
+                "scenario_description": row.scenario_description,
+                "language_and_format_instructions": row.language_and_format_instructions,
+                "created_by_user_id": str(row.created_by_user_id),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+            for row in rows
+        ]
+
+    async def create_training_scenario(
+        self,
+        *,
+        name: str,
+        product: str,
+        archetype: str,
+        difficulty_level: str,
+        client_role: str,
+        archetype_description: str,
+        scenario_description: str,
+        language_and_format_instructions: str,
+        created_by_user_id: str,
+    ) -> dict[str, Any]:
+        async_session = self._require_sessionmaker()
+        async with async_session() as session:
+            row = TrainingScenario(
+                name=name.strip(),
+                product=product.strip(),
+                archetype=archetype.strip(),
+                difficulty_level=difficulty_level.strip(),
+                client_role=client_role.strip(),
+                archetype_description=archetype_description.strip(),
+                scenario_description=scenario_description.strip(),
+                language_and_format_instructions=language_and_format_instructions.strip(),
+                created_by_user_id=self._to_uuid(created_by_user_id),
+            )
+            session.add(row)
+            await session.commit()
+            await session.refresh(row)
+            return {
+                "id": str(row.id),
+                "name": row.name,
+                "product": row.product,
+                "archetype": row.archetype,
+                "difficulty_level": row.difficulty_level,
+                "client_role": row.client_role,
+                "archetype_description": row.archetype_description,
+                "scenario_description": row.scenario_description,
+                "language_and_format_instructions": row.language_and_format_instructions,
+                "created_by_user_id": str(row.created_by_user_id),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+
+    async def update_training_scenario(
+        self,
+        *,
+        scenario_id: str,
+        name: str,
+        product: str,
+        archetype: str,
+        difficulty_level: str,
+        client_role: str,
+        archetype_description: str,
+        scenario_description: str,
+        language_and_format_instructions: str,
+    ) -> dict[str, Any] | None:
+        async_session = self._require_sessionmaker()
+        async with async_session() as session:
+            result = await session.execute(
+                select(TrainingScenario).where(TrainingScenario.id == self._to_uuid(scenario_id))
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                return None
+
+            row.name = name.strip()
+            row.product = product.strip()
+            row.archetype = archetype.strip()
+            row.difficulty_level = difficulty_level.strip()
+            row.client_role = client_role.strip()
+            row.archetype_description = archetype_description.strip()
+            row.scenario_description = scenario_description.strip()
+            row.language_and_format_instructions = language_and_format_instructions.strip()
+            row.updated_at = datetime.now().astimezone()
+
+            await session.commit()
+            await session.refresh(row)
+            return {
+                "id": str(row.id),
+                "name": row.name,
+                "product": row.product,
+                "archetype": row.archetype,
+                "difficulty_level": row.difficulty_level,
+                "client_role": row.client_role,
+                "archetype_description": row.archetype_description,
+                "scenario_description": row.scenario_description,
+                "language_and_format_instructions": row.language_and_format_instructions,
+                "created_by_user_id": str(row.created_by_user_id),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+
+    async def _seed_training_scenarios(self, conn: Any) -> None:
+        archetypes = {
+            "novice": "Новичок: нужен простой язык, может путаться, задает базовые вопросы.",
+            "skeptic": "Скептик: не доверяет, просит конкретику, проверяет риски и комиссии.",
+            "busy_owner": "Занятой предприниматель: мало времени, просит коротко и по сути.",
+        }
+        difficulties = {
+            "1": "Легкий: открыт к диалогу, мало возражений.",
+            "2": "Средний: задает вопросы, умеренные возражения.",
+            "3": "Сложный: заметное сопротивление и проверка на факты.",
+            "4": "Очень сложный: высокая требовательность, резкие возражения, ограниченное время.",
+        }
+        for archetype, archetype_desc in archetypes.items():
+            for difficulty_level, difficulty_desc in difficulties.items():
+                await conn.execute(
+                    text(
+                        """
+                        INSERT INTO training_scenarios (
+                            name,
+                            product,
+                            archetype,
+                            difficulty_level,
+                            client_role,
+                            archetype_description,
+                            scenario_description,
+                            language_and_format_instructions,
+                            created_by_user_id
+                        )
+                        VALUES (
+                            :name,
+                            'rko',
+                            :archetype,
+                            :difficulty_level,
+                            :client_role,
+                            :archetype_description,
+                            :scenario_description,
+                            :language_and_format_instructions,
+                            CAST(:coach_id AS UUID)
+                        )
+                        ON CONFLICT (product, archetype, difficulty_level)
+                        DO UPDATE SET
+                            name = EXCLUDED.name,
+                            client_role = EXCLUDED.client_role,
+                            archetype_description = EXCLUDED.archetype_description,
+                            scenario_description = EXCLUDED.scenario_description,
+                            language_and_format_instructions = EXCLUDED.language_and_format_instructions,
+                            updated_at = now()
+                        """
+                    ),
+                    {
+                        "name": f"RKO / {archetype} / level {difficulty_level}",
+                        "archetype": archetype,
+                        "difficulty_level": difficulty_level,
+                        "client_role": "Клиент малого бизнеса, которому звонит менеджер по РКО.",
+                        "archetype_description": archetype_desc,
+                        "scenario_description": (
+                            "Продукт: расчетно-кассовое обслуживание (РКО). "
+                            f"Уровень сложности: {difficulty_desc}"
+                        ),
+                        "language_and_format_instructions": (
+                            "Отвечай только на русском языке. Формат голосового разговора: "
+                            "краткие фразы, без markdown, без списков и без эмодзи."
+                        ),
+                        "coach_id": COACH_USER_ID,
+                    },
+                )

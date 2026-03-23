@@ -11,12 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  ARCHETYPES,
-  DEFAULT_SESSION_SETTINGS,
-  DIFFICULTY,
-  PRODUCTS,
-} from '@/lib/session-settings';
+import { DEFAULT_SESSION_SETTINGS } from '@/lib/session-settings';
 import type { SessionSettings } from '@/lib/session-settings';
 
 function WelcomeImage() {
@@ -41,126 +36,394 @@ interface WelcomeViewProps {
   startButtonText: string;
   onStartCall: () => void;
   sessionSettingsRef: MutableRefObject<SessionSettings>;
+  currentUserRole: 'manager' | 'coach';
 }
 
 export const WelcomeView = ({
   startButtonText,
   onStartCall,
   sessionSettingsRef,
+  currentUserRole,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  type TrainingScenario = {
+    id: string;
+    name: string;
+    product: string;
+    archetype: string;
+    difficulty_level: string;
+    client_role: string;
+    archetype_description: string;
+    scenario_description: string;
+    language_and_format_instructions: string;
+  };
+  const emptyForm = {
+    name: '',
+    product: 'rko',
+    archetype: 'novice',
+    difficulty_level: '1',
+    client_role: '',
+    archetype_description: '',
+    scenario_description: '',
+    language_and_format_instructions: '',
+  };
+
   const [settings, setSettings] = useState<SessionSettings>(DEFAULT_SESSION_SETTINGS);
+  const [scenarios, setScenarios] = useState<TrainingScenario[]>([]);
+  const [loadingScenarios, setLoadingScenarios] = useState(true);
+  const [scenariosError, setScenariosError] = useState<string | null>(null);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string>('');
+  const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     sessionSettingsRef.current = settings;
   }, [settings, sessionSettingsRef]);
 
+  const loadScenarios = async () => {
+    try {
+      setLoadingScenarios(true);
+      const response = await fetch('/api/training-scenarios', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to load training scenarios');
+      }
+      const data = (await response.json()) as TrainingScenario[];
+      setScenarios(data);
+      setScenariosError(null);
+      if (currentUserRole === 'manager' && data.length > 0 && !selectedScenarioId) {
+        setSelectedScenarioId(data[0].id);
+      }
+    } catch (error) {
+      setScenariosError(error instanceof Error ? error.message : 'Failed to load training scenarios');
+    } finally {
+      setLoadingScenarios(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadScenarios();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserRole !== 'manager') {
+      return;
+    }
+    const selected = scenarios.find((item) => item.id === selectedScenarioId);
+    if (!selected) {
+      return;
+    }
+    setSettings({
+      ...DEFAULT_SESSION_SETTINGS,
+      archetype: selected.archetype,
+      difficulty: selected.difficulty_level,
+      product: selected.product,
+      training_scenario_id: selected.id,
+      training_scenario_name: selected.name,
+      prompt_blocks: {
+        client_role: selected.client_role,
+        archetype_description: selected.archetype_description,
+        scenario_description: selected.scenario_description,
+        language_and_format_instructions: selected.language_and_format_instructions,
+      },
+    });
+  }, [currentUserRole, scenarios, selectedScenarioId]);
+
+  const beginCreateScenario = () => {
+    setEditingScenarioId(null);
+    setForm(emptyForm);
+    setSaveError(null);
+  };
+
+  const beginEditScenario = (scenario: TrainingScenario) => {
+    setEditingScenarioId(scenario.id);
+    setForm({
+      name: scenario.name,
+      product: scenario.product,
+      archetype: scenario.archetype,
+      difficulty_level: scenario.difficulty_level,
+      client_role: scenario.client_role,
+      archetype_description: scenario.archetype_description,
+      scenario_description: scenario.scenario_description,
+      language_and_format_instructions: scenario.language_and_format_instructions,
+    });
+    setSaveError(null);
+  };
+
+  const saveScenario = async () => {
+    if (
+      !form.name.trim() ||
+      !form.product.trim() ||
+      !form.archetype.trim() ||
+      !form.difficulty_level.trim() ||
+      !form.client_role.trim() ||
+      !form.archetype_description.trim() ||
+      !form.scenario_description.trim() ||
+      !form.language_and_format_instructions.trim()
+    ) {
+      setSaveError('Заполните все поля сценария.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const isEdit = Boolean(editingScenarioId);
+      const response = await fetch(
+        isEdit ? `/api/training-scenarios/${encodeURIComponent(editingScenarioId!)}` : '/api/training-scenarios',
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        }
+      );
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to save training scenario');
+      }
+      setSaveError(null);
+      beginCreateScenario();
+      await loadScenarios();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save training scenario');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center text-center">
-        <WelcomeImage />
-
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
-        </p>
-
-        <div className="text-foreground mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground whitespace-nowrap text-sm">Архетип:</span>
-            <Select
-              value={settings.archetype}
-              onValueChange={(value) =>
-                setSettings((s) => ({ ...s, archetype: value as SessionSettings['archetype'] }))
-              }
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(ARCHETYPES) as [keyof typeof ARCHETYPES, { name: string }][]).map(
-                  ([value, { name }]) => (
-                    <SelectItem key={value} value={value}>
-                      {name}
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground whitespace-nowrap text-sm">Сложность:</span>
-            <Select
-              value={settings.difficulty}
-              onValueChange={(value) =>
-                setSettings((s) => ({ ...s, difficulty: value as SessionSettings['difficulty'] }))
-              }
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(DIFFICULTY) as [keyof typeof DIFFICULTY, { name: string }][]).map(
-                  ([value, { name }]) => (
-                    <SelectItem key={value} value={value}>
-                      {name}
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground whitespace-nowrap text-sm">Тема:</span>
-            <Select
-              value={settings.product}
-              onValueChange={(value) =>
-                setSettings((s) => ({ ...s, product: value as SessionSettings['product'] }))
-              }
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(PRODUCTS) as [keyof typeof PRODUCTS, { name: string }][]).map(
-                  ([value, { name }]) => (
-                    <SelectItem key={value} value={value}>
-                      {name}
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+    <div
+      ref={ref}
+      className={
+        currentUserRole === 'coach'
+          ? 'flex min-h-0 w-full min-w-0 flex-1 flex-col'
+          : undefined
+      }
+    >
+      <section
+        className={
+          currentUserRole === 'coach'
+            ? 'bg-background flex min-h-0 w-full flex-1 flex-col items-center justify-start px-4 pb-4 pt-4 text-center'
+            : 'bg-background flex flex-col items-center justify-center text-center'
+        }
+      >
+        <div className={currentUserRole === 'coach' ? 'shrink-0' : undefined}>
+          <WelcomeImage />
         </div>
 
-        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row">
-          <Button
-            size="lg"
-            onClick={onStartCall}
-            className="w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
-          >
-            {startButtonText}
-          </Button>
+        <p
+          className={
+            currentUserRole === 'coach'
+              ? 'text-foreground max-w-prose shrink-0 pt-1 leading-6 font-medium'
+              : 'text-foreground max-w-prose pt-1 leading-6 font-medium'
+          }
+        >
+          {currentUserRole === 'coach'
+            ? 'Создавайте и редактируйте тренировочные сценарии для менеджеров'
+            : 'Выберите тренировку и начните звонок'}
+        </p>
+
+        {loadingScenarios && <p className="text-muted-foreground mt-4 text-sm">Загрузка сценариев...</p>}
+
+        {!loadingScenarios && scenariosError && <p className="mt-4 text-sm text-red-600">{scenariosError}</p>}
+
+        {!loadingScenarios && !scenariosError && currentUserRole === 'manager' && (
+          <div className="mt-4 w-full max-w-xl text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground whitespace-nowrap text-sm">Тренировка:</span>
+              <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Выберите сценарий" />
+                </SelectTrigger>
+                <SelectContent>
+                  {scenarios.map((scenario) => (
+                    <SelectItem key={scenario.id} value={scenario.id}>
+                      {scenario.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedScenarioId && (
+              <div className="border-border bg-card mt-3 rounded-lg border p-3 text-xs">
+                {(() => {
+                  const selected = scenarios.find((item) => item.id === selectedScenarioId);
+                  if (!selected) {
+                    return null;
+                  }
+                  return (
+                    <>
+                      <div>
+                        <strong>Роль клиента:</strong> {selected.client_role}
+                      </div>
+                      <div className="mt-1">
+                        <strong>Архетип:</strong> {selected.archetype_description}
+                      </div>
+                      <div className="mt-1">
+                        <strong>Сценарий:</strong> {selected.scenario_description}
+                      </div>
+                      <div className="mt-1">
+                        <strong>Параметры:</strong> {selected.product} · {selected.archetype} · level{' '}
+                        {selected.difficulty_level}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loadingScenarios && !scenariosError && currentUserRole === 'coach' && (
+          <div className="mt-4 grid w-full max-w-5xl min-h-0 min-w-0 flex-1 gap-4 text-left md:grid-cols-2 md:items-stretch">
+            <div className="border-border bg-card flex min-h-0 flex-col rounded-xl border p-4">
+              <div className="mb-3 flex shrink-0 items-center justify-between">
+                <h2 className="text-base font-semibold">Сценарии</h2>
+                <Button type="button" size="sm" variant="outline" onClick={beginCreateScenario}>
+                  Новый
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+                {scenarios.map((scenario) => (
+                  <button
+                    key={scenario.id}
+                    type="button"
+                    className="border-border hover:bg-accent/30 w-full rounded-md border p-3 text-left text-sm"
+                    onClick={() => beginEditScenario(scenario)}
+                  >
+                    <div className="font-medium">{scenario.name}</div>
+                    <div className="text-muted-foreground mt-1 line-clamp-2 text-xs">
+                      {scenario.scenario_description}
+                    </div>
+                  </button>
+                ))}
+                {scenarios.length === 0 && (
+                  <p className="text-muted-foreground text-sm">Сценариев пока нет. Создайте первый.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-border bg-card flex min-h-0 flex-col rounded-xl border p-4">
+              <h2 className="mb-3 shrink-0 text-base font-semibold">
+                {editingScenarioId ? 'Редактирование сценария' : 'Создание сценария'}
+              </h2>
+              <div className="space-y-3">
+                <label className="block text-sm">
+                  Название
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Product
+                  <input
+                    value={form.product}
+                    onChange={(e) => setForm((prev) => ({ ...prev, product: e.target.value }))}
+                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Archetype
+                  <input
+                    value={form.archetype}
+                    onChange={(e) => setForm((prev) => ({ ...prev, archetype: e.target.value }))}
+                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Difficulty level
+                  <input
+                    value={form.difficulty_level}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, difficulty_level: e.target.value }))
+                    }
+                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Client role
+                  <textarea
+                    value={form.client_role}
+                    onChange={(e) => setForm((prev) => ({ ...prev, client_role: e.target.value }))}
+                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Archetype description
+                  <textarea
+                    value={form.archetype_description}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, archetype_description: e.target.value }))
+                    }
+                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Scenario description
+                  <textarea
+                    value={form.scenario_description}
+                    onChange={(e) => setForm((prev) => ({ ...prev, scenario_description: e.target.value }))}
+                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Language and format instructions
+                  <textarea
+                    value={form.language_and_format_instructions}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        language_and_format_instructions: e.target.value,
+                      }))
+                    }
+                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+                <div className="flex gap-2">
+                  <Button type="button" onClick={saveScenario} disabled={saving}>
+                    {saving ? 'Сохраняем...' : editingScenarioId ? 'Сохранить' : 'Создать'}
+                  </Button>
+                  {editingScenarioId && (
+                    <Button type="button" variant="outline" onClick={beginCreateScenario} disabled={saving}>
+                      Отмена
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div
+          className={
+            currentUserRole === 'coach'
+              ? 'mt-6 flex shrink-0 flex-col items-center gap-3 sm:flex-row'
+              : 'mt-6 flex flex-col items-center gap-3 sm:flex-row'
+          }
+        >
+          {currentUserRole === 'manager' && (
+            <Button
+              size="lg"
+              onClick={onStartCall}
+              disabled={!selectedScenarioId}
+              className="w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
+            >
+              {startButtonText}
+            </Button>
+          )}
           <Button asChild size="lg" variant="outline" className="w-64 rounded-full">
             <Link href="/sessions">История тренировок</Link>
           </Button>
         </div>
       </section>
 
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
-          >
-            Voice AI quickstart
-          </a>
-          .
-        </p>
-      </div>
     </div>
   );
 };

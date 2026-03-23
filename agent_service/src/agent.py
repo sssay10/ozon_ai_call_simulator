@@ -63,12 +63,17 @@ async def my_agent(ctx: JobContext):
 
     # Session settings from UI (agent dispatch metadata)
     meta = parse_session_metadata(ctx.job.metadata or "")
-    instructions = build_system_prompt(
-        archetype=meta["archetype"],
-        difficulty=meta["difficulty"],
-        product=meta["product"],
+    if not isinstance(meta.get("prompt_blocks"), dict):
+        raise ValueError("prompt_blocks are required in session metadata")
+    instructions = build_system_prompt(prompt_blocks=meta["prompt_blocks"])
+    logger.info(
+        "session settings: scenario_id=%s scenario_name=%s archetype=%s difficulty=%s product=%s",
+        meta.get("training_scenario_id", ""),
+        meta.get("training_scenario_name", ""),
+        meta["archetype"],
+        meta["difficulty"],
+        meta["product"],
     )
-    logger.info("session settings: archetype=%s difficulty=%s product=%s", meta["archetype"], meta["difficulty"], meta["product"])
 
     # STT: T-one via STT service (set STT_SERVICE_URL in .env.local, e.g. http://localhost:8001)
     tone_stt = ToneSTT(base_url=os.environ["STT_SERVICE_URL"])

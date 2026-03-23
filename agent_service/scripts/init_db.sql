@@ -74,3 +74,22 @@ CREATE TABLE IF NOT EXISTS judge_results (
 );
 
 CREATE INDEX IF NOT EXISTS idx_judge_results_session_id ON judge_results(session_id);
+
+CREATE TABLE IF NOT EXISTS training_scenarios (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    product TEXT NOT NULL DEFAULT 'rko',
+    archetype TEXT NOT NULL DEFAULT 'novice',
+    difficulty_level TEXT NOT NULL DEFAULT '1',
+    client_role TEXT NOT NULL,
+    archetype_description TEXT NOT NULL,
+    scenario_description TEXT NOT NULL,
+    language_and_format_instructions TEXT NOT NULL,
+    created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_training_scenarios_updated_at ON training_scenarios(updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_training_scenarios_product_archetype_difficulty
+ON training_scenarios(product, archetype, difficulty_level);

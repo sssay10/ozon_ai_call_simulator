@@ -113,6 +113,32 @@ class ActorContext(BaseModel):
     role: str
 
 
+class TrainingScenarioUpsertRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    product: str = Field(min_length=1)
+    archetype: str = Field(min_length=1)
+    difficulty_level: str = Field(min_length=1)
+    client_role: str = Field(min_length=1)
+    archetype_description: str = Field(min_length=1)
+    scenario_description: str = Field(min_length=1)
+    language_and_format_instructions: str = Field(min_length=1)
+
+
+class TrainingScenarioResponse(BaseModel):
+    id: str
+    name: str
+    product: str
+    archetype: str
+    difficulty_level: str
+    client_role: str
+    archetype_description: str
+    scenario_description: str
+    language_and_format_instructions: str
+    created_by_user_id: str
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 def _difficulty_to_scenario_level(difficulty: str | None) -> str:
     return {
         "1": "easy",
@@ -210,6 +236,12 @@ async def _require_actor(
     if x_user_role not in {"manager", "coach"}:
         raise HTTPException(status_code=403, detail="Invalid role")
     return ActorContext(user_id=x_user_id, role=x_user_role)
+
+
+def _require_coach(actor: ActorContext) -> ActorContext:
+    if actor.role != "coach":
+        raise HTTPException(status_code=403, detail="Coach role is required")
+    return actor
 
 
 async def _resolve_session_for_actor(
@@ -340,3 +372,55 @@ async def list_sessions(
 ) -> list[SessionListItemResponse]:
     rows = await database.list_sessions_for_actor(user_id=actor.user_id, role=actor.role, limit=limit)
     return [SessionListItemResponse(**row) for row in rows]
+
+
+@app.get("/api/training-scenarios", response_model=list[TrainingScenarioResponse])
+async def list_training_scenarios(
+    actor: ActorContext = Depends(_require_actor),
+) -> list[TrainingScenarioResponse]:
+    _ = actor
+    rows = await database.list_training_scenarios()
+    return [TrainingScenarioResponse(**row) for row in rows]
+
+
+@app.post("/api/training-scenarios", response_model=TrainingScenarioResponse)
+async def create_training_scenario(
+    request: TrainingScenarioUpsertRequest,
+    actor: ActorContext = Depends(_require_actor),
+) -> TrainingScenarioResponse:
+    _require_coach(actor)
+    row = await database.create_training_scenario(
+        name=request.name,
+        product=request.product,
+        archetype=request.archetype,
+        difficulty_level=request.difficulty_level,
+        client_role=request.client_role,
+        archetype_description=request.archetype_description,
+        scenario_description=request.scenario_description,
+        language_and_format_instructions=request.language_and_format_instructions,
+        created_by_user_id=actor.user_id,
+    )
+    return TrainingScenarioResponse(**row)
+
+
+@app.put("/api/training-scenarios/{scenario_id}", response_model=TrainingScenarioResponse)
+async def update_training_scenario(
+    scenario_id: str,
+    request: TrainingScenarioUpsertRequest,
+    actor: ActorContext = Depends(_require_actor),
+) -> TrainingScenarioResponse:
+    _require_coach(actor)
+    row = await database.update_training_scenario(
+        scenario_id=scenario_id,
+        name=request.name,
+        product=request.product,
+        archetype=request.archetype,
+        difficulty_level=request.difficulty_level,
+        client_role=request.client_role,
+        archetype_description=request.archetype_description,
+        scenario_description=request.scenario_description,
+        language_and_format_instructions=request.language_and_format_instructions,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Training scenario not found")
+    return TrainingScenarioResponse(**row)

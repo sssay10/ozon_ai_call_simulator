@@ -37,12 +37,14 @@ interface ViewControllerProps {
   appConfig: AppConfig;
   sessionSettingsRef: MutableRefObject<SessionSettings>;
   lastRoomName: string | null;
+  currentUserRole: 'manager' | 'coach';
 }
 
 export function ViewController({
   appConfig,
   sessionSettingsRef,
   lastRoomName,
+  currentUserRole,
 }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
   const { resolvedTheme } = useTheme();
@@ -66,15 +68,28 @@ export function ViewController({
   };
 
   return (
+    <div
+      className={
+        currentUserRole === 'coach'
+          ? 'flex min-h-0 min-w-0 flex-1 flex-col'
+          : 'contents'
+      }
+    >
     <AnimatePresence mode="wait">
       {/* Welcome view */}
       {!isConnected && !showResults && (
         <MotionWelcomeView
           key="welcome"
           {...VIEW_MOTION_PROPS}
+          className={
+            currentUserRole === 'coach'
+              ? 'flex min-h-0 w-full min-w-0 flex-1 flex-col'
+              : undefined
+          }
           startButtonText={appConfig.startButtonText}
           onStartCall={start}
           sessionSettingsRef={sessionSettingsRef}
+          currentUserRole={currentUserRole}
         />
       )}
       {/* Session view */}
@@ -112,5 +127,6 @@ export function ViewController({
         />
       )}
     </AnimatePresence>
+    </div>
   );
 }
