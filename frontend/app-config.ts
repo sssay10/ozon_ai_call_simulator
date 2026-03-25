@@ -25,7 +25,7 @@ export interface AppConfig {
   audioVisualizerRadialRadius?: number;
   audioVisualizerWaveLineWidth?: number;
 
-  // agent dispatch configuration (not used in this project)
+  /** LiveKit agent name; default worker uses empty string. Omit or use '' unless you register a named worker. */
   agentName?: string;
 
   // LiveKit Cloud Sandbox configuration

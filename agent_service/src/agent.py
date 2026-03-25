@@ -77,6 +77,8 @@ async def my_agent(ctx: JobContext):
         meta.get("training_scenario_name", ""),
         log_product,
     )
+    logger.info("system prompt length=%s chars (log level DEBUG for full text)", len(instructions))
+    logger.debug("full system prompt:\n%s", instructions)
 
     # STT: T-one via STT service (set STT_SERVICE_URL in .env.local, e.g. http://localhost:8001)
     tone_stt = ToneSTT(base_url=os.environ["STT_SERVICE_URL"])
@@ -85,15 +87,22 @@ async def my_agent(ctx: JobContext):
     # LLM: choose between local Ollama and OpenRouter (default)
     llm_provider = os.environ.get("LLM_PROVIDER", "openrouter").lower()
     if llm_provider == "ollama":
-        # Local LLM via Ollama, e.g. `ollama run llama3.1`
+        ollama_model = os.environ.get("OLLAMA_MODEL", "llama3.1")
+        ollama_base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+        logger.info("LLM provider=ollama model=%s base_url=%s", ollama_model, ollama_base)
         llm = openai.LLM.with_ollama(
-            model=os.environ.get("OLLAMA_MODEL", "llama3.1"),
-            base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
+            model=ollama_model,
+            base_url=ollama_base,
         )
     else:
-        # Remote LLM via OpenRouter (requires OPENROUTER_API_KEY)
+        openrouter_model = os.environ.get("OPENROUTER_MODEL", "qwen/qwen-2.5-72b-instruct")
+        logger.info(
+            "LLM provider=openrouter model=%s temperature=0.3",
+            openrouter_model,
+        )
         llm = openai.LLM.with_openrouter(
-            model=os.environ.get("OPENROUTER_MODEL", "qwen/qwen-2.5-72b-instruct")
+            model=openrouter_model,
+            temperature=0.3,
         )
 
     # TTS: Silero v5 Russian via TTS service (set TTS_SERVICE_URL in .env.local, e.g. http://localhost:8002)

@@ -39,7 +39,7 @@ export function App({ appConfig, currentUserRole }: AppProps) {
   }, [appConfig]);
 
   const sessionOptions = useMemo(
-    () => (appConfig.agentName ? { agentName: appConfig.agentName } : undefined),
+    () => ({ agentName: appConfig.agentName ?? '' }),
     [appConfig.agentName]
   );
 

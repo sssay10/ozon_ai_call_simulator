@@ -230,10 +230,10 @@ export const WelcomeView = ({
                   return (
                     <>
                       <div>
-                        <strong>Персона клиента:</strong> {selected.persona_description}
+                        <strong>Персона (кто клиент):</strong> {selected.persona_description}
                       </div>
                       <div className="mt-1">
-                        <strong>Сценарий (тема разговора):</strong> {selected.scenario_description}
+                        <strong>Ситуация (о чём звонок):</strong> {selected.scenario_description}
                       </div>
                     </>
                   );
@@ -287,7 +287,7 @@ export const WelcomeView = ({
                     />
                   </label>
                   <label className="block text-left text-sm">
-                    Персона клиента (поведение, тон)
+                    Персона — кто клиент (характер, тон; не дублируй тему звонка ниже)
                     <textarea
                       value={form.persona_description}
                       onChange={(e) =>
@@ -298,7 +298,7 @@ export const WelcomeView = ({
                     />
                   </label>
                   <label className="block text-left text-sm">
-                    Описание сценария (о чём говорят клиент и оператор)
+                    Ситуация — о чём звонок (тема, контекст; не дублируй характер из персоны)
                     <textarea
                       value={form.scenario_description}
                       onChange={(e) =>

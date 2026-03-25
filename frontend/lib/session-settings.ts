@@ -1,5 +1,6 @@
 /**
- * Session settings sent to LiveKit agent metadata (prompt blocks from DB only).
+ * Session settings sent to LiveKit agent metadata.
+ * prompt_blocks: persona = who the client is; scenario_description = what the call is about (do not duplicate).
  */
 export interface SessionSettings {
   product: string;
