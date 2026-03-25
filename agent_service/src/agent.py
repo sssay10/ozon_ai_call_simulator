@@ -65,14 +65,17 @@ async def my_agent(ctx: JobContext):
     meta = parse_session_metadata(ctx.job.metadata or "")
     if not isinstance(meta.get("prompt_blocks"), dict):
         raise ValueError("prompt_blocks are required in session metadata")
-    instructions = build_system_prompt(prompt_blocks=meta["prompt_blocks"])
+    scenario_label = meta.get("training_scenario_name") or meta.get("training_scenario_id") or None
+    instructions = build_system_prompt(
+        prompt_blocks=meta["prompt_blocks"],
+        scenario_label=scenario_label if isinstance(scenario_label, str) and scenario_label.strip() else None,
+    )
+    log_product = meta.get("product") or meta.get("training_scenario_name") or ""
     logger.info(
-        "session settings: scenario_id=%s scenario_name=%s archetype=%s difficulty=%s product=%s",
+        "session settings: scenario_id=%s scenario_name=%s product=%s",
         meta.get("training_scenario_id", ""),
         meta.get("training_scenario_name", ""),
-        meta["archetype"],
-        meta["difficulty"],
-        meta["product"],
+        log_product,
     )
 
     # STT: T-one via STT service (set STT_SERVICE_URL in .env.local, e.g. http://localhost:8001)
@@ -122,12 +125,11 @@ async def my_agent(ctx: JobContext):
     database_url = os.environ.get("DATABASE_URL")
     if database_url:
         dialogue_logger = DialogueLogger(database_url)
+        db_product = log_product or "training"
         db_session_id = await dialogue_logger.create_session(
             room_name=ctx.room.name,
             job_id=getattr(ctx.job, "id", None) or "",
-            archetype=meta["archetype"],
-            difficulty=meta["difficulty"],
-            product=meta["product"],
+            product=db_product,
             owner_user_id=owner_user_id,
         )
         if db_session_id:
@@ -146,9 +148,7 @@ async def my_agent(ctx: JobContext):
                         judge_service_url=judge_service_url,
                         session_id=db_session_id,
                         room_name=ctx.room.name,
-                        archetype=meta["archetype"],
-                        difficulty=meta["difficulty"],
-                        product=meta["product"],
+                        product=db_product,
                     )
                 await dialogue_logger.close()
 

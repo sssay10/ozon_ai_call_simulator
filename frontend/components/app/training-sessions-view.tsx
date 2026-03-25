@@ -8,8 +8,6 @@ type TrainingSessionSummary = {
   session_id: string;
   owner_user_id: string;
   room_name: string;
-  archetype: string;
-  difficulty: string;
   product: string;
   started_at?: string | null;
   ended_at?: string | null;
@@ -258,9 +256,11 @@ export function TrainingSessionsView({ ownerUserId, hideHeader = false }: Traini
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="truncate text-base font-semibold">{session.product}</div>
-                    <div className="text-muted-foreground mt-1 text-sm">
-                      {session.archetype} · {session.difficulty}
-                    </div>
+                    {session.scenario_id && (
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        Рубрика оценки: <code>{session.scenario_id}</code>
+                      </div>
+                    )}
                     <div className="text-muted-foreground mt-3 text-xs">
                       Комната: <code>{session.room_name}</code>
                     </div>

@@ -101,9 +101,7 @@ curl -X 'POST' \
   -H 'Content-Type: application/json' \
   -d '{
   "session_id": "<dialogue_session_uuid>",
-  "archetype": "novice",
-  "difficulty": "1",
-  "product": "rko"
+  "product": "RKO / novice / level 1"
 }'
 ```
 

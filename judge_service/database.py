@@ -13,18 +13,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 logger = logging.getLogger(__name__)
 
-COACH_USER_ID = "00000000-0000-0000-0000-000000000102"
-MANAGER_USER_ID = "00000000-0000-0000-0000-000000000101"
-MANAGER_PASSWORD_HASH = (
-    "pbkdf2_sha256$600000$7b2107ce2bc6ba3df5734a2a521b86f8$"
-    "0eb95df478ac77e2aab09ed3cc6a127d0699d08d1625c3360b45afad2b640c44"
-)
-COACH_PASSWORD_HASH = (
-    "pbkdf2_sha256$600000$1aa20de0b878c7a27c35cdf7c2260885$"
-    "866b8f822f592cceb0dd9d26d004b1e724771fa54918aa77ec5f0e99fcf0fceb"
-)
-
-
 class Base(DeclarativeBase):
     pass
 
@@ -37,8 +25,6 @@ class DialogueSession(Base):
     )
     room_name: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     job_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    archetype: Mapped[str] = mapped_column(Text, nullable=False)
-    difficulty: Mapped[str] = mapped_column(Text, nullable=False)
     product: Mapped[str] = mapped_column(Text, nullable=False)
     owner_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
     started_at: Mapped[datetime] = mapped_column(
@@ -104,19 +90,13 @@ class JudgeResult(Base):
 
 class TrainingScenario(Base):
     __tablename__ = "training_scenarios"
-    __table_args__ = (UniqueConstraint("product", "archetype", "difficulty_level", name="uq_training_scenarios_product_archetype_difficulty"),)
 
     id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    product: Mapped[str] = mapped_column(Text, nullable=False)
-    archetype: Mapped[str] = mapped_column(Text, nullable=False)
-    difficulty_level: Mapped[str] = mapped_column(Text, nullable=False)
-    client_role: Mapped[str] = mapped_column(Text, nullable=False)
-    archetype_description: Mapped[str] = mapped_column(Text, nullable=False)
+    persona_description: Mapped[str] = mapped_column(Text, nullable=False)
     scenario_description: Mapped[str] = mapped_column(Text, nullable=False)
-    language_and_format_instructions: Mapped[str] = mapped_column(Text, nullable=False)
     created_by_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -158,179 +138,9 @@ class Database:
             class_=AsyncSession,
             expire_on_commit=False,
         )
-
-        async with self.engine.begin() as conn:
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
-            await conn.execute(
-                text(
-                    """
-                    CREATE TABLE IF NOT EXISTS users (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        email TEXT NOT NULL UNIQUE,
-                        password_hash TEXT NOT NULL,
-                        role TEXT NOT NULL CHECK (role IN ('manager', 'coach')),
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                    )
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    INSERT INTO users (id, email, password_hash, role)
-                    VALUES
-                        (
-                            :manager_id,
-                            'manager@example.com',
-                            :manager_password_hash,
-                            'manager'
-                        ),
-                        (
-                            :coach_id,
-                            'coach@example.com',
-                            :coach_password_hash,
-                            'coach'
-                        )
-                    ON CONFLICT (email) DO NOTHING
-                    """
-                ),
-                {
-                    "manager_id": MANAGER_USER_ID,
-                    "manager_password_hash": MANAGER_PASSWORD_HASH,
-                    "coach_id": COACH_USER_ID,
-                    "coach_password_hash": COACH_PASSWORD_HASH,
-                },
-            )
-            await conn.execute(text("ALTER TABLE IF EXISTS dialogue_sessions ADD COLUMN IF NOT EXISTS owner_user_id UUID"))
-            await conn.execute(
-                text(
-                    """
-                    UPDATE dialogue_sessions
-                    SET owner_user_id = CAST(:coach_id AS UUID)
-                    WHERE owner_user_id IS NULL
-                    """
-                ),
-                {"coach_id": COACH_USER_ID},
-            )
-            await conn.execute(
-                text(
-                    """
-                    DO $$
-                    BEGIN
-                        IF EXISTS (
-                            SELECT 1
-                            FROM information_schema.tables
-                            WHERE table_name = 'dialogue_sessions'
-                        ) AND NOT EXISTS (
-                            SELECT 1
-                            FROM pg_constraint
-                            WHERE conname = 'fk_dialogue_sessions_owner_user_id'
-                        ) THEN
-                            ALTER TABLE dialogue_sessions
-                            ADD CONSTRAINT fk_dialogue_sessions_owner_user_id
-                            FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE RESTRICT;
-                        END IF;
-                    END
-                    $$;
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    DO $$
-                    BEGIN
-                        IF EXISTS (
-                            SELECT 1
-                            FROM information_schema.columns
-                            WHERE table_name = 'dialogue_sessions'
-                              AND column_name = 'owner_user_id'
-                              AND is_nullable = 'YES'
-                        ) THEN
-                            ALTER TABLE dialogue_sessions
-                            ALTER COLUMN owner_user_id SET NOT NULL;
-                        END IF;
-                    EXCEPTION
-                        WHEN undefined_table THEN
-                            NULL;
-                    END
-                    $$;
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    CREATE TABLE IF NOT EXISTS training_scenarios (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        name TEXT NOT NULL,
-                        product TEXT NOT NULL DEFAULT 'rko',
-                        archetype TEXT NOT NULL DEFAULT 'novice',
-                        difficulty_level TEXT NOT NULL DEFAULT '1',
-                        client_role TEXT NOT NULL,
-                        archetype_description TEXT NOT NULL,
-                        scenario_description TEXT NOT NULL,
-                        language_and_format_instructions TEXT NOT NULL,
-                        created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                    )
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    ALTER TABLE training_scenarios ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 'rko'
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    ALTER TABLE training_scenarios ADD COLUMN IF NOT EXISTS archetype TEXT NOT NULL DEFAULT 'novice'
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    ALTER TABLE training_scenarios ADD COLUMN IF NOT EXISTS difficulty_level TEXT NOT NULL DEFAULT '1'
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1
-                            FROM pg_constraint
-                            WHERE conname = 'uq_training_scenarios_product_archetype_difficulty'
-                        ) THEN
-                            ALTER TABLE training_scenarios
-                            ADD CONSTRAINT uq_training_scenarios_product_archetype_difficulty
-                            UNIQUE (product, archetype, difficulty_level);
-                        END IF;
-                    END
-                    $$;
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_training_scenarios_updated_at
-                    ON training_scenarios(updated_at DESC)
-                    """
-                )
-            )
-            await self._seed_training_scenarios(conn)
-            await conn.run_sync(Base.metadata.create_all)
-
+        # Schema and seeds: `agent_service/scripts/init.sql` (docker-entrypoint-initdb.d on empty volume).
         self._initialized = True
-        logger.info("Database: initialized successfully")
+        logger.info("Database: connected (schema expected from init.sql)")
 
     async def close(self) -> None:
         if self.engine is not None:
@@ -495,8 +305,6 @@ class Database:
                 {
                     "session_id": str(session_row.id),
                     "room_name": session_row.room_name,
-                    "archetype": session_row.archetype,
-                    "difficulty": session_row.difficulty,
                     "product": session_row.product,
                     "owner_user_id": str(session_row.owner_user_id),
                     "started_at": session_row.started_at.isoformat() if session_row.started_at else None,
@@ -534,8 +342,6 @@ class Database:
                     "session_id": str(session_row.id),
                     "owner_user_id": str(session_row.owner_user_id),
                     "room_name": session_row.room_name,
-                    "archetype": session_row.archetype,
-                    "difficulty": session_row.difficulty,
                     "product": session_row.product,
                     "started_at": session_row.started_at.isoformat() if session_row.started_at else None,
                     "ended_at": session_row.ended_at.isoformat() if session_row.ended_at else None,
@@ -561,13 +367,8 @@ class Database:
             {
                 "id": str(row.id),
                 "name": row.name,
-                "product": row.product,
-                "archetype": row.archetype,
-                "difficulty_level": row.difficulty_level,
-                "client_role": row.client_role,
-                "archetype_description": row.archetype_description,
+                "persona_description": row.persona_description,
                 "scenario_description": row.scenario_description,
-                "language_and_format_instructions": row.language_and_format_instructions,
                 "created_by_user_id": str(row.created_by_user_id),
                 "created_at": row.created_at.isoformat() if row.created_at else None,
                 "updated_at": row.updated_at.isoformat() if row.updated_at else None,
@@ -579,26 +380,16 @@ class Database:
         self,
         *,
         name: str,
-        product: str,
-        archetype: str,
-        difficulty_level: str,
-        client_role: str,
-        archetype_description: str,
+        persona_description: str,
         scenario_description: str,
-        language_and_format_instructions: str,
         created_by_user_id: str,
     ) -> dict[str, Any]:
         async_session = self._require_sessionmaker()
         async with async_session() as session:
             row = TrainingScenario(
                 name=name.strip(),
-                product=product.strip(),
-                archetype=archetype.strip(),
-                difficulty_level=difficulty_level.strip(),
-                client_role=client_role.strip(),
-                archetype_description=archetype_description.strip(),
+                persona_description=persona_description.strip(),
                 scenario_description=scenario_description.strip(),
-                language_and_format_instructions=language_and_format_instructions.strip(),
                 created_by_user_id=self._to_uuid(created_by_user_id),
             )
             session.add(row)
@@ -607,13 +398,8 @@ class Database:
             return {
                 "id": str(row.id),
                 "name": row.name,
-                "product": row.product,
-                "archetype": row.archetype,
-                "difficulty_level": row.difficulty_level,
-                "client_role": row.client_role,
-                "archetype_description": row.archetype_description,
+                "persona_description": row.persona_description,
                 "scenario_description": row.scenario_description,
-                "language_and_format_instructions": row.language_and_format_instructions,
                 "created_by_user_id": str(row.created_by_user_id),
                 "created_at": row.created_at.isoformat() if row.created_at else None,
                 "updated_at": row.updated_at.isoformat() if row.updated_at else None,
@@ -624,13 +410,8 @@ class Database:
         *,
         scenario_id: str,
         name: str,
-        product: str,
-        archetype: str,
-        difficulty_level: str,
-        client_role: str,
-        archetype_description: str,
+        persona_description: str,
         scenario_description: str,
-        language_and_format_instructions: str,
     ) -> dict[str, Any] | None:
         async_session = self._require_sessionmaker()
         async with async_session() as session:
@@ -642,13 +423,8 @@ class Database:
                 return None
 
             row.name = name.strip()
-            row.product = product.strip()
-            row.archetype = archetype.strip()
-            row.difficulty_level = difficulty_level.strip()
-            row.client_role = client_role.strip()
-            row.archetype_description = archetype_description.strip()
+            row.persona_description = persona_description.strip()
             row.scenario_description = scenario_description.strip()
-            row.language_and_format_instructions = language_and_format_instructions.strip()
             row.updated_at = datetime.now().astimezone()
 
             await session.commit()
@@ -656,81 +432,9 @@ class Database:
             return {
                 "id": str(row.id),
                 "name": row.name,
-                "product": row.product,
-                "archetype": row.archetype,
-                "difficulty_level": row.difficulty_level,
-                "client_role": row.client_role,
-                "archetype_description": row.archetype_description,
+                "persona_description": row.persona_description,
                 "scenario_description": row.scenario_description,
-                "language_and_format_instructions": row.language_and_format_instructions,
                 "created_by_user_id": str(row.created_by_user_id),
                 "created_at": row.created_at.isoformat() if row.created_at else None,
                 "updated_at": row.updated_at.isoformat() if row.updated_at else None,
             }
-
-    async def _seed_training_scenarios(self, conn: Any) -> None:
-        archetypes = {
-            "novice": "Новичок: нужен простой язык, может путаться, задает базовые вопросы.",
-            "skeptic": "Скептик: не доверяет, просит конкретику, проверяет риски и комиссии.",
-            "busy_owner": "Занятой предприниматель: мало времени, просит коротко и по сути.",
-        }
-        difficulties = {
-            "1": "Легкий: открыт к диалогу, мало возражений.",
-            "2": "Средний: задает вопросы, умеренные возражения.",
-            "3": "Сложный: заметное сопротивление и проверка на факты.",
-            "4": "Очень сложный: высокая требовательность, резкие возражения, ограниченное время.",
-        }
-        for archetype, archetype_desc in archetypes.items():
-            for difficulty_level, difficulty_desc in difficulties.items():
-                await conn.execute(
-                    text(
-                        """
-                        INSERT INTO training_scenarios (
-                            name,
-                            product,
-                            archetype,
-                            difficulty_level,
-                            client_role,
-                            archetype_description,
-                            scenario_description,
-                            language_and_format_instructions,
-                            created_by_user_id
-                        )
-                        VALUES (
-                            :name,
-                            'rko',
-                            :archetype,
-                            :difficulty_level,
-                            :client_role,
-                            :archetype_description,
-                            :scenario_description,
-                            :language_and_format_instructions,
-                            CAST(:coach_id AS UUID)
-                        )
-                        ON CONFLICT (product, archetype, difficulty_level)
-                        DO UPDATE SET
-                            name = EXCLUDED.name,
-                            client_role = EXCLUDED.client_role,
-                            archetype_description = EXCLUDED.archetype_description,
-                            scenario_description = EXCLUDED.scenario_description,
-                            language_and_format_instructions = EXCLUDED.language_and_format_instructions,
-                            updated_at = now()
-                        """
-                    ),
-                    {
-                        "name": f"RKO / {archetype} / level {difficulty_level}",
-                        "archetype": archetype,
-                        "difficulty_level": difficulty_level,
-                        "client_role": "Клиент малого бизнеса, которому звонит менеджер по РКО.",
-                        "archetype_description": archetype_desc,
-                        "scenario_description": (
-                            "Продукт: расчетно-кассовое обслуживание (РКО). "
-                            f"Уровень сложности: {difficulty_desc}"
-                        ),
-                        "language_and_format_instructions": (
-                            "Отвечай только на русском языке. Формат голосового разговора: "
-                            "краткие фразы, без markdown, без списков и без эмодзи."
-                        ),
-                        "coach_id": COACH_USER_ID,
-                    },
-                )

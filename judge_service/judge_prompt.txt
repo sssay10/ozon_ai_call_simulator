@@ -11,8 +11,8 @@
 ### СЦЕНАРИЙ
 Название: {scenario_title}
 Описание: {scenario_description}
-Уровень сложности: {scenario_difficulty}
-Архетип клиента: {scenario_archetype}
+Уровень рубрики: {scenario_level}
+Сегмент клиента: {scenario_segment}
 
 ### ТРАНСКРИПЦИЯ ДИАЛОГА
 {transcript}

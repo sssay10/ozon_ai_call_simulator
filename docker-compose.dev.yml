@@ -11,7 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - ./data/postgres_data:/var/lib/postgresql/data
-      - ./agent_service/scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+      - ./agent_service/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   stt_service:
     build:

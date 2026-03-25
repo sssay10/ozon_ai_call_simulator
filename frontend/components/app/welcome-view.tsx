@@ -49,23 +49,13 @@ export const WelcomeView = ({
   type TrainingScenario = {
     id: string;
     name: string;
-    product: string;
-    archetype: string;
-    difficulty_level: string;
-    client_role: string;
-    archetype_description: string;
+    persona_description: string;
     scenario_description: string;
-    language_and_format_instructions: string;
   };
   const emptyForm = {
     name: '',
-    product: 'rko',
-    archetype: 'novice',
-    difficulty_level: '1',
-    client_role: '',
-    archetype_description: '',
+    persona_description: '',
     scenario_description: '',
-    language_and_format_instructions: '',
   };
 
   const [settings, setSettings] = useState<SessionSettings>(DEFAULT_SESSION_SETTINGS);
@@ -120,16 +110,12 @@ export const WelcomeView = ({
     }
     setSettings({
       ...DEFAULT_SESSION_SETTINGS,
-      archetype: selected.archetype,
-      difficulty: selected.difficulty_level,
-      product: selected.product,
+      product: selected.name,
       training_scenario_id: selected.id,
       training_scenario_name: selected.name,
       prompt_blocks: {
-        client_role: selected.client_role,
-        archetype_description: selected.archetype_description,
+        persona_description: selected.persona_description,
         scenario_description: selected.scenario_description,
-        language_and_format_instructions: selected.language_and_format_instructions,
       },
     });
   }, [currentUserRole, scenarios, selectedScenarioId]);
@@ -144,28 +130,14 @@ export const WelcomeView = ({
     setEditingScenarioId(scenario.id);
     setForm({
       name: scenario.name,
-      product: scenario.product,
-      archetype: scenario.archetype,
-      difficulty_level: scenario.difficulty_level,
-      client_role: scenario.client_role,
-      archetype_description: scenario.archetype_description,
+      persona_description: scenario.persona_description,
       scenario_description: scenario.scenario_description,
-      language_and_format_instructions: scenario.language_and_format_instructions,
     });
     setSaveError(null);
   };
 
   const saveScenario = async () => {
-    if (
-      !form.name.trim() ||
-      !form.product.trim() ||
-      !form.archetype.trim() ||
-      !form.difficulty_level.trim() ||
-      !form.client_role.trim() ||
-      !form.archetype_description.trim() ||
-      !form.scenario_description.trim() ||
-      !form.language_and_format_instructions.trim()
-    ) {
+    if (!form.name.trim() || !form.persona_description.trim() || !form.scenario_description.trim()) {
       setSaveError('Заполните все поля сценария.');
       return;
     }
@@ -258,17 +230,10 @@ export const WelcomeView = ({
                   return (
                     <>
                       <div>
-                        <strong>Роль клиента:</strong> {selected.client_role}
+                        <strong>Персона клиента:</strong> {selected.persona_description}
                       </div>
                       <div className="mt-1">
-                        <strong>Архетип:</strong> {selected.archetype_description}
-                      </div>
-                      <div className="mt-1">
-                        <strong>Сценарий:</strong> {selected.scenario_description}
-                      </div>
-                      <div className="mt-1">
-                        <strong>Параметры:</strong> {selected.product} · {selected.archetype} · level{' '}
-                        {selected.difficulty_level}
+                        <strong>Сценарий (тема разговора):</strong> {selected.scenario_description}
                       </div>
                     </>
                   );
@@ -307,95 +272,54 @@ export const WelcomeView = ({
               </div>
             </div>
 
-            <div className="border-border bg-card flex min-h-0 flex-col rounded-xl border p-4">
+            <div className="border-border bg-card flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border p-4">
               <h2 className="mb-3 shrink-0 text-base font-semibold">
                 {editingScenarioId ? 'Редактирование сценария' : 'Создание сценария'}
               </h2>
-              <div className="space-y-3">
-                <label className="block text-sm">
-                  Название
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Product
-                  <input
-                    value={form.product}
-                    onChange={(e) => setForm((prev) => ({ ...prev, product: e.target.value }))}
-                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Archetype
-                  <input
-                    value={form.archetype}
-                    onChange={(e) => setForm((prev) => ({ ...prev, archetype: e.target.value }))}
-                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Difficulty level
-                  <input
-                    value={form.difficulty_level}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, difficulty_level: e.target.value }))
-                    }
-                    className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Client role
-                  <textarea
-                    value={form.client_role}
-                    onChange={(e) => setForm((prev) => ({ ...prev, client_role: e.target.value }))}
-                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Archetype description
-                  <textarea
-                    value={form.archetype_description}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, archetype_description: e.target.value }))
-                    }
-                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Scenario description
-                  <textarea
-                    value={form.scenario_description}
-                    onChange={(e) => setForm((prev) => ({ ...prev, scenario_description: e.target.value }))}
-                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="block text-sm">
-                  Language and format instructions
-                  <textarea
-                    value={form.language_and_format_instructions}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        language_and_format_instructions: e.target.value,
-                      }))
-                    }
-                    className="border-border bg-background mt-1 min-h-20 w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                {saveError && <p className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2">
-                  <Button type="button" onClick={saveScenario} disabled={saving}>
-                    {saving ? 'Сохраняем...' : editingScenarioId ? 'Сохранить' : 'Создать'}
-                  </Button>
-                  {editingScenarioId && (
-                    <Button type="button" variant="outline" onClick={beginCreateScenario} disabled={saving}>
-                      Отмена
-                    </Button>
-                  )}
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="space-y-3">
+                  <label className="block text-left text-sm">
+                    Название
+                    <input
+                      value={form.name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                      className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2"
+                    />
+                  </label>
+                  <label className="block text-left text-sm">
+                    Персона клиента (поведение, тон)
+                    <textarea
+                      value={form.persona_description}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, persona_description: e.target.value }))
+                      }
+                      rows={5}
+                      className="border-border bg-background mt-1 min-h-[120px] w-full resize-y rounded-md border px-3 py-2"
+                    />
+                  </label>
+                  <label className="block text-left text-sm">
+                    Описание сценария (о чём говорят клиент и оператор)
+                    <textarea
+                      value={form.scenario_description}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, scenario_description: e.target.value }))
+                      }
+                      rows={5}
+                      className="border-border bg-background mt-1 min-h-[120px] w-full resize-y rounded-md border px-3 py-2"
+                    />
+                  </label>
+                  {saveError && <p className="text-left text-sm text-red-600">{saveError}</p>}
                 </div>
+              </div>
+              <div className="border-border mt-4 flex shrink-0 gap-2 border-t pt-4">
+                <Button type="button" onClick={saveScenario} disabled={saving}>
+                  {saving ? 'Сохраняем...' : editingScenarioId ? 'Сохранить' : 'Создать'}
+                </Button>
+                {editingScenarioId && (
+                  <Button type="button" variant="outline" onClick={beginCreateScenario} disabled={saving}>
+                    Отмена
+                  </Button>
+                )}
               </div>
             </div>
           </div>

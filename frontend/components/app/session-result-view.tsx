@@ -37,8 +37,6 @@ type SessionResult = {
   session: {
     session_id: string;
     room_name: string;
-    archetype: string;
-    difficulty: string;
     product: string;
     started_at?: string | null;
     ended_at?: string | null;
@@ -212,18 +210,16 @@ export function SessionResultView({
 
         {!loading && data && (
           <>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="border-border bg-card rounded-xl border p-4">
-                <div className="text-muted-foreground text-xs uppercase">Архетип</div>
-                <div className="mt-2 text-sm font-medium">{data.session.archetype}</div>
-              </div>
-              <div className="border-border bg-card rounded-xl border p-4">
-                <div className="text-muted-foreground text-xs uppercase">Сложность</div>
-                <div className="mt-2 text-sm font-medium">{data.session.difficulty}</div>
-              </div>
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="border-border bg-card rounded-xl border p-4">
                 <div className="text-muted-foreground text-xs uppercase">Тема</div>
                 <div className="mt-2 text-sm font-medium">{data.session.product}</div>
+              </div>
+              <div className="border-border bg-card rounded-xl border p-4">
+                <div className="text-muted-foreground text-xs uppercase">Рубрика оценки</div>
+                <div className="mt-2 font-mono text-sm font-medium">
+                  {data.judge_result?.scenario_id ?? '...'}
+                </div>
               </div>
               <div className="border-border bg-card rounded-xl border p-4">
                 <div className="text-muted-foreground text-xs uppercase">Итоговый балл</div>

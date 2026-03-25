@@ -34,8 +34,6 @@ class DialogueLogger:
         self,
         room_name: str,
         job_id: str | None,
-        archetype: str,
-        difficulty: str,
         product: str,
         owner_user_id: str,
     ) -> UUID | None:
@@ -47,14 +45,12 @@ class DialogueLogger:
             conn = await self._get_conn()
             row = await conn.fetchrow(
                 """
-                INSERT INTO dialogue_sessions (room_name, job_id, archetype, difficulty, product, owner_user_id)
-                VALUES ($1, $2, $3, $4, $5, $6::uuid)
+                INSERT INTO dialogue_sessions (room_name, job_id, product, owner_user_id)
+                VALUES ($1, $2, $3, $4::uuid)
                 RETURNING id
                 """,
                 room_name,
                 job_id or "",
-                archetype,
-                difficulty,
                 product,
                 owner_user_id,
             )
@@ -103,8 +99,6 @@ async def trigger_judge_session(
     judge_service_url: str,
     session_id: UUID,
     room_name: str,
-    archetype: str,
-    difficulty: str,
     product: str,
 ) -> dict[str, Any] | None:
     """Trigger judge_service for a completed session."""
@@ -115,8 +109,6 @@ async def trigger_judge_session(
                 json={
                     "session_id": str(session_id),
                     "room_name": room_name,
-                    "archetype": archetype,
-                    "difficulty": difficulty,
                     "product": product,
                 },
             )
