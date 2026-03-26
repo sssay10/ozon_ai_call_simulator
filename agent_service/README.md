@@ -97,13 +97,13 @@ uv run python src/agent.py start
 
 ## Dialogue logging (optional)
 
-To log session metadata (archetype, difficulty, product) and the full dialogue (user transcriptions and LLM responses) to PostgreSQL for manager quality and analytics:
+To log session metadata (product label, training scenario) and the full dialogue (user transcriptions and LLM responses) to PostgreSQL for manager quality and analytics:
 
 1. Start Postgres, e.g. from the project root: `docker compose up -d postgres`
 2. Set `DATABASE_URL` in `.env.local`, e.g. `postgresql://dialogue:dialogue@localhost:5432/dialogues`
 3. Optional: set `JUDGE_SERVICE_URL`, e.g. `http://localhost:8003`, to trigger automatic post-call evaluation when the training session ends
 
-Tables: `dialogue_sessions` (one row per call with settings), `dialogue_messages` (each user/assistant turn), `judge_results` (stored evaluation result). Schema is created automatically via `scripts/init_db.sql` when the Postgres container is first created.
+Tables: `dialogue_sessions` (one row per call with settings), `dialogue_messages` (each user/assistant turn), `judge_results` (stored evaluation result), `training_scenarios`, etc. Full schema and seeds are in `scripts/init.sql` (applied by Postgres `docker-entrypoint-initdb.d` on an empty data volume). Services do not run migrations.
 
 ## Frontend & Telephony
 

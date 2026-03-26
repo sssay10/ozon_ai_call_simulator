@@ -25,9 +25,10 @@ function AppSetup() {
 
 interface AppProps {
   appConfig: AppConfig;
+  currentUserRole: 'manager' | 'coach';
 }
 
-export function App({ appConfig }: AppProps) {
+export function App({ appConfig, currentUserRole }: AppProps) {
   const sessionSettingsRef = useRef<SessionSettings>(DEFAULT_SESSION_SETTINGS);
   const [lastRoomName, setLastRoomName] = useState<string | null>(null);
 
@@ -38,7 +39,7 @@ export function App({ appConfig }: AppProps) {
   }, [appConfig]);
 
   const sessionOptions = useMemo(
-    () => (appConfig.agentName ? { agentName: appConfig.agentName } : undefined),
+    () => ({ agentName: appConfig.agentName ?? '' }),
     [appConfig.agentName]
   );
 
@@ -47,11 +48,18 @@ export function App({ appConfig }: AppProps) {
   return (
     <AgentSessionProvider session={session}>
       <AppSetup />
-      <main className="grid h-svh grid-cols-1 place-content-center">
+      <main
+        className={
+          currentUserRole === 'coach'
+            ? 'flex h-svh min-h-0 flex-col overflow-hidden'
+            : 'grid h-svh grid-cols-1 place-content-center'
+        }
+      >
         <ViewController
           appConfig={appConfig}
           sessionSettingsRef={sessionSettingsRef}
           lastRoomName={lastRoomName}
+          currentUserRole={currentUserRole}
         />
       </main>
       <StartAudioButton label="Start Audio" />

@@ -104,16 +104,15 @@ export function getSandboxTokenSource(
   return TokenSource.custom(async () => {
     const url = new URL(process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT!, window.location.origin);
     const sandboxId = appConfig.sandboxId ?? '';
-    const roomConfig = appConfig.agentName
-      ? {
-          agents: [
-            {
-              agentName: appConfig.agentName,
-              metadata: JSON.stringify(sessionSettingsRef.current),
-            },
-          ],
-        }
-      : undefined;
+    // Always attach metadata: default worker uses empty agent_name; `if (agentName)` skipped that.
+    const roomConfig = {
+      agents: [
+        {
+          agentName: appConfig.agentName ?? '',
+          metadata: JSON.stringify(sessionSettingsRef.current),
+        },
+      ],
+    };
 
     try {
       const res = await fetch(url.toString(), {
@@ -148,16 +147,14 @@ export function getEndpointTokenSource(
   onRoomName?: (roomName: string) => void
 ) {
   return TokenSource.custom(async () => {
-    const roomConfig = appConfig.agentName
-      ? {
-          agents: [
-            {
-              agentName: appConfig.agentName,
-              metadata: JSON.stringify(sessionSettingsRef.current),
-            },
-          ],
-        }
-      : undefined;
+    const roomConfig = {
+      agents: [
+        {
+          agentName: appConfig.agentName ?? '',
+          metadata: JSON.stringify(sessionSettingsRef.current),
+        },
+      ],
+    };
 
     const res = await fetch('/api/token', {
       method: 'POST',

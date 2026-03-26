@@ -101,8 +101,8 @@ class LLMJudge:
         return self.prompt_template.format(
             scenario_title=scenario_config.title,
             scenario_description=scenario_config.description,
-            scenario_difficulty=scenario_config.difficulty,
-            scenario_archetype=scenario_config.client_archetype,
+            scenario_level=scenario_config.level,
+            scenario_segment=scenario_config.client_segment,
             transcript=transcript_str,
             compliance_must_have=compliance_must_have,
             compliance_must_avoid=compliance_must_avoid,

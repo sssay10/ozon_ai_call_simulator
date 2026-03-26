@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -7,10 +7,10 @@ class ScenarioConfig:
     """
     Описание одного сценария оценки:
 
-    - id: внутренний идентификатор сценария (то, что будем хранить в TrainingSession)
+    - id: внутренний идентификатор сценария (то, что будем хранить в judge_results)
     - title / description: понятное описание для логов/отладки
-    - difficulty: уровень сложности, который выбирает менеджер в ЛК ("easy" | "medium" | "hard")
-    - client_archetype: архетип клиента из ТЗ/ЛК ("novice_ip", "silent_ip", "expert_ooo" и т.п.)
+    - level: грубая градация сложности рубрики ("easy" | "medium" | "hard")
+    - client_segment: условный сегмент клиента для рубрики (ID, не русское название)
     - client_profile_conditions: базовые условия по профилю клиента (ИП/ООО, есть ли сотрудники и т.д.)
     - relevant_criteria: какие критерии мы вообще оцениваем в этом сценарии
     - compliance_must_have: какие обязательные смыслы/фразы должны быть (в любом формулировочном виде)
@@ -20,8 +20,8 @@ class ScenarioConfig:
     id: str
     title: str
     description: str
-    difficulty: str
-    client_archetype: str
+    level: str
+    client_segment: str
     client_profile_conditions: Dict[str, Any]
     relevant_criteria: List[str]
     compliance_must_have: List[str]
@@ -43,30 +43,26 @@ NOVICE_IP_NO_ACCOUNT_EASY = ScenarioConfig(
         "(система налогообложения, сотрудники), рассказ про требования по документам "
         "и аккуратное закрытие звонка без завышенных ожиданий."
     ),
-    # сюда будем маппить то, что менеджер выбирает в ЛК
-    difficulty="easy",            # уровень сложности из UI
-    client_archetype="novice_ip",  # архетип клиента из ТЗ/ЛК (ID, не русское название)
+    level="easy",
+    client_segment="novice_ip",
 
-    # минимальные условия по профилю клиента, чтобы этот сценарий был релевантен
     client_profile_conditions={
         "type": "IP",
         "has_employees": False,
         "has_other_account": False,
     },
 
-    # критерии, которые в этом сценарии реально оцениваем
     relevant_criteria=[
-        "greeting_correct",                       # корректное приветствие + самопрезентация
-        "congratulation_given",                   # поздравление с регистрацией
-        "compliance_free_account_ip",             # правильно объяснена бесплатность счёта для ИП
-        "compliance_account_docs_ip",             # корректно озвучены документы для ИП
-        "compliance_buh_free_usn_income",         # аккуратное упоминание бухгалтерии (если всплывает)
-        "verification_agreement_correctly_understood",  # менеджер проверил понимание клиента
-        "closing_success",                        # логичное завершение звонка
-        "politeness",                             # вежливость, отсутствие жёстких формулировок
+        "greeting_correct",
+        "congratulation_given",
+        "compliance_free_account_ip",
+        "compliance_account_docs_ip",
+        "compliance_buh_free_usn_income",
+        "verification_agreement_correctly_understood",
+        "closing_success",
+        "politeness",
     ],
 
-    # обязательные смыслы / элементы скрипта для этой ветки
     compliance_must_have=[
         "Менеджер в приветствии представляется в формате 'Это <имя> из Ozon' (без слова 'банк').",
         "Менеджер поздравляет клиента с регистрацией на Ozon в начале разговора.",
@@ -75,7 +71,6 @@ NOVICE_IP_NO_ACCOUNT_EASY = ScenarioConfig(
         "Менеджер уточняет систему налогообложения и наличие/отсутствие сотрудников.",
     ],
 
-    # запрещённые формулировки/паттерны для этой ветки
     compliance_must_avoid=[
         "Использование слова 'банк' в самопрезентации в приветствии (например, 'вас приветствует Анна из Ozon Банка').",
         "Обещания вида 'гарантируем одобрение'.",
@@ -84,7 +79,6 @@ NOVICE_IP_NO_ACCOUNT_EASY = ScenarioConfig(
         "Агрессивные или вводящие в заблуждение формулировки про обязательное подключение услуг.",
     ],
 
-    # веса критериев при подсчёте итогового балла (используем на бэкенде, не в LLM)
     weights={
         "greeting_correct": 1,
         "congratulation_given": 1,
@@ -98,25 +92,22 @@ NOVICE_IP_NO_ACCOUNT_EASY = ScenarioConfig(
 )
 
 
-# Реестр всех сценариев (сюда потом добавим medium/hard и другие архетипы)
 SCENARIO_CONFIG: Dict[str, ScenarioConfig] = {
     NOVICE_IP_NO_ACCOUNT_EASY.id: NOVICE_IP_NO_ACCOUNT_EASY,
 }
 
+DEFAULT_SCENARIO_ID = NOVICE_IP_NO_ACCOUNT_EASY.id
 
-def get_scenario_id(difficulty: str, client_archetype: str) -> Optional[str]:
+
+def get_scenario_id(level: str, client_segment: str) -> Optional[str]:
     """
-    Маппинг выбора менеджера (сложность + архетип клиента из ЛК) -> scenario_id.
+    Маппинг выбора (level + client_segment) -> scenario_id.
 
-    difficulty: "easy" | "medium" | "hard"
-    client_archetype: строка-идентификатор архетипа, которую отдаёт UI,
-                      например: "novice_ip", "expert_ip", "complainer_ooo" и т.п.
+    level: "easy" | "medium" | "hard"
+    client_segment: строка-идентификатор, например: "novice_ip", "expert_ip", "complainer_ooo" и т.п.
     """
     for scenario in SCENARIO_CONFIG.values():
-        if (
-            scenario.difficulty == difficulty
-            and scenario.client_archetype == client_archetype
-        ):
+        if scenario.level == level and scenario.client_segment == client_segment:
             return scenario.id
     return None
 

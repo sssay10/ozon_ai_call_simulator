@@ -13,18 +13,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 logger = logging.getLogger(__name__)
 
-COACH_USER_ID = "00000000-0000-0000-0000-000000000102"
-MANAGER_USER_ID = "00000000-0000-0000-0000-000000000101"
-MANAGER_PASSWORD_HASH = (
-    "pbkdf2_sha256$600000$7b2107ce2bc6ba3df5734a2a521b86f8$"
-    "0eb95df478ac77e2aab09ed3cc6a127d0699d08d1625c3360b45afad2b640c44"
-)
-COACH_PASSWORD_HASH = (
-    "pbkdf2_sha256$600000$1aa20de0b878c7a27c35cdf7c2260885$"
-    "866b8f822f592cceb0dd9d26d004b1e724771fa54918aa77ec5f0e99fcf0fceb"
-)
-
-
 class Base(DeclarativeBase):
     pass
 
@@ -37,8 +25,6 @@ class DialogueSession(Base):
     )
     room_name: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     job_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    archetype: Mapped[str] = mapped_column(Text, nullable=False)
-    difficulty: Mapped[str] = mapped_column(Text, nullable=False)
     product: Mapped[str] = mapped_column(Text, nullable=False)
     owner_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, index=True)
     started_at: Mapped[datetime] = mapped_column(
@@ -102,6 +88,24 @@ class JudgeResult(Base):
     session: Mapped[DialogueSession] = relationship(back_populates="judge_result")
 
 
+class TrainingScenario(Base):
+    __tablename__ = "training_scenarios"
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    persona_description: Mapped[str] = mapped_column(Text, nullable=False)
+    scenario_description: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Database:
     """Database connection and operations manager for judge service."""
 
@@ -134,110 +138,9 @@ class Database:
             class_=AsyncSession,
             expire_on_commit=False,
         )
-
-        async with self.engine.begin() as conn:
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
-            await conn.execute(
-                text(
-                    """
-                    CREATE TABLE IF NOT EXISTS users (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        email TEXT NOT NULL UNIQUE,
-                        password_hash TEXT NOT NULL,
-                        role TEXT NOT NULL CHECK (role IN ('manager', 'coach')),
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                    )
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    INSERT INTO users (id, email, password_hash, role)
-                    VALUES
-                        (
-                            :manager_id,
-                            'manager@example.com',
-                            :manager_password_hash,
-                            'manager'
-                        ),
-                        (
-                            :coach_id,
-                            'coach@example.com',
-                            :coach_password_hash,
-                            'coach'
-                        )
-                    ON CONFLICT (email) DO NOTHING
-                    """
-                ),
-                {
-                    "manager_id": MANAGER_USER_ID,
-                    "manager_password_hash": MANAGER_PASSWORD_HASH,
-                    "coach_id": COACH_USER_ID,
-                    "coach_password_hash": COACH_PASSWORD_HASH,
-                },
-            )
-            await conn.execute(text("ALTER TABLE IF EXISTS dialogue_sessions ADD COLUMN IF NOT EXISTS owner_user_id UUID"))
-            await conn.execute(
-                text(
-                    """
-                    UPDATE dialogue_sessions
-                    SET owner_user_id = CAST(:coach_id AS UUID)
-                    WHERE owner_user_id IS NULL
-                    """
-                ),
-                {"coach_id": COACH_USER_ID},
-            )
-            await conn.execute(
-                text(
-                    """
-                    DO $$
-                    BEGIN
-                        IF EXISTS (
-                            SELECT 1
-                            FROM information_schema.tables
-                            WHERE table_name = 'dialogue_sessions'
-                        ) AND NOT EXISTS (
-                            SELECT 1
-                            FROM pg_constraint
-                            WHERE conname = 'fk_dialogue_sessions_owner_user_id'
-                        ) THEN
-                            ALTER TABLE dialogue_sessions
-                            ADD CONSTRAINT fk_dialogue_sessions_owner_user_id
-                            FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE RESTRICT;
-                        END IF;
-                    END
-                    $$;
-                    """
-                )
-            )
-            await conn.execute(
-                text(
-                    """
-                    DO $$
-                    BEGIN
-                        IF EXISTS (
-                            SELECT 1
-                            FROM information_schema.columns
-                            WHERE table_name = 'dialogue_sessions'
-                              AND column_name = 'owner_user_id'
-                              AND is_nullable = 'YES'
-                        ) THEN
-                            ALTER TABLE dialogue_sessions
-                            ALTER COLUMN owner_user_id SET NOT NULL;
-                        END IF;
-                    EXCEPTION
-                        WHEN undefined_table THEN
-                            NULL;
-                    END
-                    $$;
-                    """
-                )
-            )
-            await conn.run_sync(Base.metadata.create_all)
-
+        # Schema and seeds: `agent_service/scripts/init.sql` (docker-entrypoint-initdb.d on empty volume).
         self._initialized = True
-        logger.info("Database: initialized successfully")
+        logger.info("Database: connected (schema expected from init.sql)")
 
     async def close(self) -> None:
         if self.engine is not None:
@@ -402,8 +305,6 @@ class Database:
                 {
                     "session_id": str(session_row.id),
                     "room_name": session_row.room_name,
-                    "archetype": session_row.archetype,
-                    "difficulty": session_row.difficulty,
                     "product": session_row.product,
                     "owner_user_id": str(session_row.owner_user_id),
                     "started_at": session_row.started_at.isoformat() if session_row.started_at else None,
@@ -441,8 +342,6 @@ class Database:
                     "session_id": str(session_row.id),
                     "owner_user_id": str(session_row.owner_user_id),
                     "room_name": session_row.room_name,
-                    "archetype": session_row.archetype,
-                    "difficulty": session_row.difficulty,
                     "product": session_row.product,
                     "started_at": session_row.started_at.isoformat() if session_row.started_at else None,
                     "ended_at": session_row.ended_at.isoformat() if session_row.ended_at else None,
@@ -452,3 +351,90 @@ class Database:
                 }
             )
         return sessions
+
+    async def list_training_scenarios(self) -> list[dict[str, Any]]:
+        async_session = self._require_sessionmaker()
+        async with async_session() as session:
+            result = await session.execute(
+                select(TrainingScenario).order_by(
+                    desc(TrainingScenario.updated_at),
+                    desc(TrainingScenario.created_at),
+                )
+            )
+            rows = result.scalars().all()
+
+        return [
+            {
+                "id": str(row.id),
+                "name": row.name,
+                "persona_description": row.persona_description,
+                "scenario_description": row.scenario_description,
+                "created_by_user_id": str(row.created_by_user_id),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+            for row in rows
+        ]
+
+    async def create_training_scenario(
+        self,
+        *,
+        name: str,
+        persona_description: str,
+        scenario_description: str,
+        created_by_user_id: str,
+    ) -> dict[str, Any]:
+        async_session = self._require_sessionmaker()
+        async with async_session() as session:
+            row = TrainingScenario(
+                name=name.strip(),
+                persona_description=persona_description.strip(),
+                scenario_description=scenario_description.strip(),
+                created_by_user_id=self._to_uuid(created_by_user_id),
+            )
+            session.add(row)
+            await session.commit()
+            await session.refresh(row)
+            return {
+                "id": str(row.id),
+                "name": row.name,
+                "persona_description": row.persona_description,
+                "scenario_description": row.scenario_description,
+                "created_by_user_id": str(row.created_by_user_id),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+
+    async def update_training_scenario(
+        self,
+        *,
+        scenario_id: str,
+        name: str,
+        persona_description: str,
+        scenario_description: str,
+    ) -> dict[str, Any] | None:
+        async_session = self._require_sessionmaker()
+        async with async_session() as session:
+            result = await session.execute(
+                select(TrainingScenario).where(TrainingScenario.id == self._to_uuid(scenario_id))
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                return None
+
+            row.name = name.strip()
+            row.persona_description = persona_description.strip()
+            row.scenario_description = scenario_description.strip()
+            row.updated_at = datetime.now().astimezone()
+
+            await session.commit()
+            await session.refresh(row)
+            return {
+                "id": str(row.id),
+                "name": row.name,
+                "persona_description": row.persona_description,
+                "scenario_description": row.scenario_description,
+                "created_by_user_id": str(row.created_by_user_id),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }

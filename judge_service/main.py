@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from database import Database, DialogueSession, JudgeResult
 from judge import LLMJudge
-from scenarios import get_scenario_id
+from scenarios import DEFAULT_SCENARIO_ID
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,8 +44,6 @@ judge: LLMJudge | None = None
 class JudgeSessionRequest(BaseModel):
     session_id: str | None = None
     room_name: str | None = None
-    archetype: str | None = None
-    difficulty: str | None = None
     product: str | None = None
 
     @model_validator(mode="after")
@@ -64,8 +62,6 @@ class TranscriptTurn(BaseModel):
 class SessionMetadataResponse(BaseModel):
     session_id: str
     room_name: str
-    archetype: str
-    difficulty: str
     product: str
     started_at: str | None = None
     ended_at: str | None = None
@@ -97,8 +93,6 @@ class SessionResultResponse(BaseModel):
 class SessionListItemResponse(BaseModel):
     session_id: str
     room_name: str
-    archetype: str
-    difficulty: str
     product: str
     owner_user_id: str
     started_at: str | None = None
@@ -113,52 +107,32 @@ class ActorContext(BaseModel):
     role: str
 
 
-def _difficulty_to_scenario_level(difficulty: str | None) -> str:
-    return {
-        "1": "easy",
-        "2": "medium",
-        "3": "hard",
-        "4": "hard",
-    }.get(str(difficulty or "1"), "easy")
+class TrainingScenarioUpsertRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    persona_description: str = Field(min_length=1)
+    scenario_description: str = Field(min_length=1)
 
 
-def _archetype_to_scenario_archetype(archetype: str | None) -> str:
-    # The current scenario pack is limited; map current UI archetypes to the closest known config.
-    return {
-        "novice": "novice_ip",
-        "friendly": "novice_ip",
-        "skeptic": "novice_ip",
-        "busy_owner": "novice_ip",
-    }.get(str(archetype or "novice"), "novice_ip")
+class TrainingScenarioResponse(BaseModel):
+    id: str
+    name: str
+    persona_description: str
+    scenario_description: str
+    created_by_user_id: str
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
-def _resolve_scenario_id(
-    archetype: str | None,
-    difficulty: str | None,
-    product: str | None,
-) -> str:
-    scenario_level = _difficulty_to_scenario_level(difficulty)
-    scenario_archetype = _archetype_to_scenario_archetype(archetype)
-    scenario_id = get_scenario_id(scenario_level, scenario_archetype)
-    if scenario_id:
-        return scenario_id
-
-    # Fallback while the scenario catalog is still narrow / outdated.
-    logger.warning(
-        "No scenario mapping for archetype=%s difficulty=%s product=%s, using fallback",
-        archetype,
-        difficulty,
-        product,
-    )
-    return "novice_ip_no_account_easy"
+def _resolve_scenario_id(product: str | None) -> str:
+    """Single rubric pack for now; `product` reserved for future training-scenario mapping."""
+    _ = product
+    return DEFAULT_SCENARIO_ID
 
 
 def _serialize_session(row: DialogueSession) -> SessionMetadataResponse:
     return SessionMetadataResponse(
         session_id=str(row.id),
         room_name=row.room_name,
-        archetype=row.archetype,
-        difficulty=row.difficulty,
         product=row.product,
         started_at=row.started_at.isoformat() if row.started_at else None,
         ended_at=row.ended_at.isoformat() if row.ended_at else None,
@@ -210,6 +184,12 @@ async def _require_actor(
     if x_user_role not in {"manager", "coach"}:
         raise HTTPException(status_code=403, detail="Invalid role")
     return ActorContext(user_id=x_user_id, role=x_user_role)
+
+
+def _require_coach(actor: ActorContext) -> ActorContext:
+    if actor.role != "coach":
+        raise HTTPException(status_code=403, detail="Coach role is required")
+    return actor
 
 
 async def _resolve_session_for_actor(
@@ -289,17 +269,11 @@ async def judge_session(request: JudgeSessionRequest) -> SessionResultResponse:
     if not transcript:
         raise HTTPException(status_code=400, detail="Session has no transcript data")
 
-    scenario_id = _resolve_scenario_id(
-        archetype=request.archetype or session_row.archetype,
-        difficulty=request.difficulty or session_row.difficulty,
-        product=request.product or session_row.product,
-    )
+    scenario_id = _resolve_scenario_id(request.product or session_row.product)
     logger.info(
-        "Judging session %s room=%s archetype=%s difficulty=%s product=%s scenario_id=%s",
+        "Judging session %s room=%s product=%s scenario_id=%s",
         session_row.id,
         session_row.room_name,
-        request.archetype or session_row.archetype,
-        request.difficulty or session_row.difficulty,
         request.product or session_row.product,
         scenario_id,
     )
@@ -340,3 +314,45 @@ async def list_sessions(
 ) -> list[SessionListItemResponse]:
     rows = await database.list_sessions_for_actor(user_id=actor.user_id, role=actor.role, limit=limit)
     return [SessionListItemResponse(**row) for row in rows]
+
+
+@app.get("/api/training-scenarios", response_model=list[TrainingScenarioResponse])
+async def list_training_scenarios(
+    actor: ActorContext = Depends(_require_actor),
+) -> list[TrainingScenarioResponse]:
+    _ = actor
+    rows = await database.list_training_scenarios()
+    return [TrainingScenarioResponse(**row) for row in rows]
+
+
+@app.post("/api/training-scenarios", response_model=TrainingScenarioResponse)
+async def create_training_scenario(
+    request: TrainingScenarioUpsertRequest,
+    actor: ActorContext = Depends(_require_actor),
+) -> TrainingScenarioResponse:
+    _require_coach(actor)
+    row = await database.create_training_scenario(
+        name=request.name,
+        persona_description=request.persona_description,
+        scenario_description=request.scenario_description,
+        created_by_user_id=actor.user_id,
+    )
+    return TrainingScenarioResponse(**row)
+
+
+@app.put("/api/training-scenarios/{scenario_id}", response_model=TrainingScenarioResponse)
+async def update_training_scenario(
+    scenario_id: str,
+    request: TrainingScenarioUpsertRequest,
+    actor: ActorContext = Depends(_require_actor),
+) -> TrainingScenarioResponse:
+    _require_coach(actor)
+    row = await database.update_training_scenario(
+        scenario_id=scenario_id,
+        name=request.name,
+        persona_description=request.persona_description,
+        scenario_description=request.scenario_description,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Training scenario not found")
+    return TrainingScenarioResponse(**row)

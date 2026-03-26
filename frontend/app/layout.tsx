@@ -76,7 +76,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           disableTransitionOnChange
         >
           {currentUser && (
-            <header className="hidden w-full items-center justify-between border-b border-border/80 bg-background p-6 md:flex">
+            <header className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-border/80 bg-background p-6">
               <div className="flex items-center gap-6">
                 <nav className="flex items-center gap-4 text-sm">
                   <Link href="/" className="text-foreground hover:text-primary transition-colors">

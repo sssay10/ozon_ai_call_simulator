@@ -26,11 +26,17 @@ def _synthesize_sync(text: str, speaker: str, sample_rate: int) -> bytes:
     """Run Silero TTS. Called in thread; uses global _silero_model."""
     if _silero_model is None:
         raise RuntimeError("TTS model not loaded")
+
     audio = _silero_model.apply_tts(
         text=text,
         speaker=speaker,
         sample_rate=sample_rate,
+        put_accent=True,
+        put_yo=True,
+        put_stress_homo=True,
+        put_yo_homo=True
     )
+
     if isinstance(audio, torch.Tensor):
         audio = audio.numpy()
     audio_int16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
