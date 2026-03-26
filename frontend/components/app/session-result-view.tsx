@@ -53,6 +53,13 @@ interface SessionResultViewProps {
   backLabel?: string;
 }
 
+function toTenPointScore(score?: number | null): number | null {
+  if (typeof score !== 'number' || Number.isNaN(score)) {
+    return null;
+  }
+  return score / 10;
+}
+
 function roleToMessageFrom(role: string): 'user' | 'assistant' {
   return role === 'manager' ? 'user' : 'assistant';
 }
@@ -224,7 +231,7 @@ export function SessionResultView({
               <div className="border-border bg-card rounded-xl border p-4">
                 <div className="text-muted-foreground text-xs uppercase">Итоговый балл</div>
                 <div className="mt-2 text-2xl font-semibold">
-                  {data.judge_result ? data.judge_result.total_score : '...'}
+                  {data.judge_result ? toTenPointScore(data.judge_result.total_score)?.toFixed(1) : '...'}
                 </div>
               </div>
             </div>

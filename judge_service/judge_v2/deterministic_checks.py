@@ -231,6 +231,23 @@ class DeterministicChecks:
                     kb_evidence=[{"chunk_id": "docs.must_say_original_passport_rf"}],
                 )
 
+            if has_passport and not has_rf:
+                evidence_line = _find_matching_manager_line(
+                    segment,
+                    ["оригинал паспорта"],
+                )
+                return CriterionResult(
+                    criterion_id=criterion_id,
+                    decision="fail",
+                    score=0.0,
+                    confidence=0.97,
+                    rationale_short="Есть упоминание оригинала паспорта, но не уточнено, что нужен оригинал паспорта РФ.",
+                    transcript_evidence=[
+                        {"text": evidence_line, "segment": segment.name}
+                    ],
+                    kb_evidence=[{"chunk_id": "docs.must_say_original_passport_rf"}],
+                )
+
             generic_passport_patterns = [
                 "нужен паспорт",
                 "ну паспорт",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from .feedback import build_feedback_payload
 from .schemas import CriterionResult
 
 
@@ -31,15 +32,17 @@ def build_legacy_response(
     judge_backend: str = "hybrid_kb_v2",
     model_used: str = "unknown",
 ) -> dict[str, Any]:
+    feedback = build_feedback_payload(criterion_results)
+
     return {
         "session_id": session_id,
         "scenario_id": scenario_id,
         "scores": aggregate_criterion_scores(criterion_results),
         "total_score": total_score,
         "critical_errors": critical_errors,
-        "feedback_positive": [],
-        "feedback_improvement": [],
-        "recommendations": [],
+        "feedback_positive": feedback["feedback_positive"],
+        "feedback_improvement": feedback["feedback_improvement"],
+        "recommendations": feedback["recommendations"],
         "client_profile": {},
         "relevant_criteria": relevant_criteria,
         "model_used": model_used,

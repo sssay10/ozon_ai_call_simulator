@@ -51,6 +51,7 @@ services:
       - "8003:8003"
     environment:
       DATABASE_URL: "${INTERNAL_DATABASE_URL:-postgresql://dialogue:dialogue@postgres:5432/dialogues}"
+      JUDGE_BACKEND: "${JUDGE_BACKEND:-legacy}"
       LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
       OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from database import Database, DialogueSession, JudgeResult
 from judge import LLMJudge
+from judge_v2.runtime import HybridKBJudge
 from scenarios import DEFAULT_SCENARIO_ID
 
 logging.basicConfig(
@@ -38,7 +39,19 @@ app.add_middleware(
 )
 
 database = Database()
-judge: LLMJudge | None = None
+
+
+class JudgeBackend(Protocol):
+    backend_name: str
+
+    def evaluate(
+        self,
+        transcript: list[dict[str, str]],
+        scenario_id: str = DEFAULT_SCENARIO_ID,
+    ) -> dict[str, Any]: ...
+
+
+judge: JudgeBackend | None = None
 
 
 class JudgeSessionRequest(BaseModel):
@@ -231,8 +244,21 @@ async def startup() -> None:
         if not os.getenv("OPENROUTER_API_KEY"):
             logger.warning("Judge service: OPENROUTER_API_KEY is not set")
 
-    judge = LLMJudge()
-    logger.info("Judge service started successfully")
+    requested_backend = os.getenv("JUDGE_BACKEND", "legacy").lower().strip()
+    if requested_backend == "hybrid_v2":
+        judge = HybridKBJudge()
+    else:
+        if requested_backend not in {"", "legacy"}:
+            logger.warning(
+                "Judge service: unknown JUDGE_BACKEND=%s, falling back to legacy",
+                requested_backend,
+            )
+        judge = LLMJudge()
+
+    logger.info(
+        "Judge service started successfully with judge backend %s",
+        getattr(judge, "backend_name", "unknown"),
+    )
 
 
 @app.on_event("shutdown")
