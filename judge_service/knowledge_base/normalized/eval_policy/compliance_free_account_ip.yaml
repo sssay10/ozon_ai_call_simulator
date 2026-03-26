@@ -1,0 +1,52 @@
+id: eval.compliance_free_account_ip
+title: "Политика оценки compliance_free_account_ip"
+
+version: 1
+doc_type: eval_policy
+rule_kind: reference
+priority: high
+
+criterion_tags:
+  - compliance_free_account_ip
+
+title: "Политика оценки free_account_mentioned"
+
+scenario_tags:
+  - novice_ip_no_account_easy
+  - novice_ip_no_account_medium
+
+applicability:
+  stage:
+    - body_block
+  legal_form:
+    - ip
+  channel:
+    - phone
+
+canonical_rule: >
+  Критерий считается выполненным, если менеджер явно сообщил
+  про бесплатный расчетный счет или передал эквивалентный смысл.
+
+pass_conditions:
+  - "Есть явное упоминание бесплатного счета"
+  - "Есть эквивалентный смысл отсутствия платы"
+
+fail_conditions:
+  - "Бесплатность счета не озвучена"
+  - "Есть только общее упоминание тарифа без смысла бесплатности"
+
+null_conditions:
+  - "Продуктовая часть разговора не состоялась"
+
+retrieval_hints:
+  keywords:
+    - бесплатно
+    - бесплатный счет
+    - расчётный счёт
+    - расчетный счет
+  evidence_window: body_block
+  priority_boost: 1.2
+
+source:
+  source_type: manual
+  source_name: eval_design_v1

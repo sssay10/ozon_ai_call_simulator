@@ -1,3 +1,4 @@
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -5,7 +6,8 @@ from typing import Any
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from judge import LLMJudge  # noqa: E402
+from judge_v2.pipeline import JudgeV2Pipeline  # noqa: E402
+from judge_v2.testing import fake_llm_generate_json, load_fixture_as_transcript  # noqa: E402
 
 
 FIXTURES_DIR = Path("evals/fixtures")
@@ -139,12 +141,32 @@ def print_case_report(case_id: str, scenario_id: str, result: dict[str, Any], va
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--judge",
+        choices=["legacy", "v2-fake"],
+        default="legacy",
+        help="Какой judge прогонять на фикстурах.",
+    )
+    args = parser.parse_args()
+
     fixtures = load_fixtures()
     if not fixtures:
         print("No fixtures found in evals/fixtures")
         return
 
-    judge = LLMJudge()
+    legacy_judge = None
+    v2_judge = None
+
+    if args.judge == "legacy":
+        from judge import LLMJudge  # noqa: E402
+
+        legacy_judge = LLMJudge()
+    else:
+        v2_judge = JudgeV2Pipeline(
+            kb_root=Path(__file__).resolve().parent.parent / "knowledge_base" / "normalized",
+            llm_generate_json=fake_llm_generate_json,
+        )
 
     total_cases = 0
     passed_cases = 0
@@ -157,10 +179,14 @@ def main() -> None:
         transcript = fixture["transcript"]
         expected = fixture.get("expected", {})
 
-        result = judge.evaluate(
-            transcript=transcript,
-            scenario_id=scenario_id,
-        )
+        if legacy_judge is not None:
+            result = legacy_judge.evaluate(
+                transcript=transcript,
+                scenario_id=scenario_id,
+            )
+        else:
+            transcript_model = load_fixture_as_transcript(Path(fixture["_file"]))
+            result = v2_judge.run(transcript_model)
 
         validation = check_expected(result, expected)
         print_case_report(case_id, scenario_id, result, validation)
