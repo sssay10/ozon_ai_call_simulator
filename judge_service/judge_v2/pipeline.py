@@ -67,7 +67,7 @@ class JudgeV2Pipeline:
                 criterion_id=criterion_id,
                 scenario_id=transcript.scenario_id,
                 segment=segment,
-                top_k=3,
+                top_k=2,
             )
 
             debug["retrieval"][criterion_id] = [

@@ -1,6 +1,4 @@
 id: eval.compliance_free_account_ip
-title: "Политика оценки compliance_free_account_ip"
-
 version: 1
 doc_type: eval_policy
 rule_kind: reference
@@ -9,7 +7,7 @@ priority: high
 criterion_tags:
   - compliance_free_account_ip
 
-title: "Политика оценки free_account_mentioned"
+title: "Политика оценки compliance_free_account_ip"
 
 scenario_tags:
   - novice_ip_no_account_easy

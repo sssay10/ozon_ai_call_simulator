@@ -7,20 +7,74 @@ from .schemas import Transcript, TranscriptSegment
 
 class SimpleSegmenter:
     """
-    MVP-segmenter:
-    - первые 4 реплики -> greeting_block
-    - середина -> body_block
-    - последние 4 реплики -> closing_block
+    Простой rule-based segmenter:
+    - greeting_block: старт разговора до первого явного product/docs pitch
+    - body_block: основная продуктовая и документная часть
+    - closing_block: финальные договоренности и завершение
     """
+
+    BODY_MARKERS = (
+        "счет",
+        "счёт",
+        "тариф",
+        "бесплат",
+        "документ",
+        "паспорт",
+        "оформ",
+        "открыт",
+    )
+
+    CLOSING_MARKERS = (
+        "я подумаю",
+        "подумаю",
+        "тогда жду",
+        "жду документы",
+        "сегодня",
+    )
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        return " ".join(text.lower().replace("ё", "е").split())
+
+    def _find_body_start(self, utts) -> int:
+        for i, utterance in enumerate(utts):
+            if utterance.speaker != "manager":
+                continue
+
+            text_norm = self._normalize(utterance.text)
+            if any(marker in text_norm for marker in self.BODY_MARKERS):
+                return i
+
+        return min(4, len(utts))
+
+    def _find_closing_start(self, utts, body_start: int) -> int:
+        for i in range(max(body_start + 1, 0), len(utts)):
+            utterance = utts[i]
+            text_norm = self._normalize(utterance.text)
+
+            if utterance.speaker == "client" and any(
+                marker in text_norm for marker in ("я подумаю", "подумаю")
+            ):
+                return i
+
+            if utterance.speaker == "manager" and any(
+                marker in text_norm for marker in self.CLOSING_MARKERS
+            ):
+                return i
+
+        return len(utts)
 
     def segment(self, transcript: Transcript) -> List[TranscriptSegment]:
         utts = transcript.utterances
         if not utts:
             return []
 
-        greeting = utts[:4]
-        closing = utts[-4:] if len(utts) >= 4 else utts
-        body = utts[4:-4] if len(utts) > 8 else utts[4:]
+        body_start = self._find_body_start(utts)
+        closing_start = self._find_closing_start(utts, body_start)
+
+        greeting = utts[:body_start]
+        body = utts[body_start:closing_start]
+        closing = utts[closing_start:]
 
         segments: List[TranscriptSegment] = []
 

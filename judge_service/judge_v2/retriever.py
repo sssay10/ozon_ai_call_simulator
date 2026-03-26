@@ -37,7 +37,7 @@ class SimpleCriterionRetriever:
         criterion_id: str,
         scenario_id: str,
         segment: TranscriptSegment | None,
-        top_k: int = 3,
+        top_k: int = 2,
     ) -> List[KBChunk]:
         segment_text = ""
         segment_name = ""
@@ -46,9 +46,12 @@ class SimpleCriterionRetriever:
             segment_text = " ".join(u.text.lower() for u in segment.utterances)
             segment_name = segment.name
 
+        exact_chunks = [chunk for chunk in self.chunks if criterion_id in chunk.criterion_tags]
+        candidate_chunks = exact_chunks if exact_chunks else self.chunks
+
         scored: List[Tuple[float, KBChunk]] = []
 
-        for chunk in self.chunks:
+        for chunk in candidate_chunks:
             score = 0.0
             criterion_match = criterion_id in chunk.criterion_tags
 
@@ -56,28 +59,30 @@ class SimpleCriterionRetriever:
             if criterion_match:
                 score += 10.0
             else:
-                # Более сильный штраф за чужой критерий
-                score -= 3.0
-
-                # Если это нормативный chunk не того критерия,
-                # дополнительно штрафуем, чтобы он не обгонял нужные правила
-                if chunk.doc_type.value in {"policy", "eval_policy"}:
-                    score -= 2.5
+                score -= 5.0
 
             # 2. Scenario match
             if scenario_id in chunk.scenario_tags:
                 score += 3.0
+            elif chunk.scenario_tags:
+                score -= 2.0
 
             # 3. Stage match / mismatch
             if segment_name:
                 if segment_name in chunk.applicability.stage:
                     score += 3.0
                 elif chunk.applicability.stage:
-                    score -= 1.5
+                    score -= 3.0
 
             # 4. Evidence window match
             if segment_name and chunk.retrieval_hints.evidence_window == segment_name:
                 score += 2.0
+            elif (
+                segment_name
+                and chunk.retrieval_hints.evidence_window != "anywhere"
+                and chunk.retrieval_hints.evidence_window != segment_name
+            ):
+                score -= 1.5
 
             # 5. Priority + doc type
             score += PRIORITY_SCORE.get(chunk.priority.value, 0.0)
