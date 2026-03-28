@@ -41,6 +41,54 @@ def _has_any_pattern(text: str, patterns: list[str]) -> bool:
     return any(pattern in text for pattern in patterns)
 
 
+def _line_looks_like_valid_ozon_intro(text_norm: str) -> bool:
+    has_name_intro = any(
+        pattern in text_norm
+        for pattern in [
+            "меня зовут",
+            "это анна",
+            "это мария",
+            "это менеджер",
+            "звоню",
+            "вас приветствует",
+        ]
+    )
+    has_ozon = ("ozon" in text_norm) or ("озон" in text_norm)
+    has_bank = "банк" in text_norm
+    return has_name_intro and has_ozon and not has_bank
+
+
+def _find_manager_line_by_predicate(
+    segment: TranscriptSegment,
+    predicate,
+) -> str:
+    for utterance in segment.utterances:
+        if utterance.speaker != "manager":
+            continue
+        text_norm = _normalize(utterance.text)
+        if predicate(text_norm):
+            return f"manager: {utterance.text}"
+    return ""
+
+
+def _line_has_original_passport_rf(text_norm: str) -> bool:
+    has_passport = "паспорт" in text_norm
+    has_original = "оригинал" in text_norm
+    has_rf_marker = ("рф" in text_norm) or ("россий" in text_norm)
+    return has_passport and has_original and has_rf_marker
+
+
+def _line_has_original_passport_without_rf(text_norm: str) -> bool:
+    has_passport = "паспорт" in text_norm
+    has_original = "оригинал" in text_norm
+    has_rf_marker = ("рф" in text_norm) or ("россий" in text_norm)
+    return has_passport and has_original and not has_rf_marker
+
+
+def _word_count(text: str) -> int:
+    return len([part for part in _normalize(text).split(" ") if part])
+
+
 class DeterministicChecks:
     """
     Проверяем только самые очевидные кейсы.
@@ -83,17 +131,14 @@ class DeterministicChecks:
                         {"text": evidence_line, "segment": segment.name}
                     ],
                     kb_evidence=[{"chunk_id": "greeting.no_bank.self_intro"}],
+                    metadata={"failure_reason": "bank_in_greeting"},
                 )
 
-            intro_patterns = [
-                "меня зовут",
-                "это анна из ozon",
-                "это анна, звоню из ozon",
-                "звоню из ozon",
-                "вас приветствует",
-            ]
-            if _has_any_pattern(manager_text_norm, intro_patterns):
-                evidence_line = _find_matching_manager_line(segment, ["ozon"])
+            evidence_line = _find_manager_line_by_predicate(
+                segment,
+                _line_looks_like_valid_ozon_intro,
+            )
+            if evidence_line:
                 return CriterionResult(
                     criterion_id=criterion_id,
                     decision="pass",
@@ -104,6 +149,7 @@ class DeterministicChecks:
                         {"text": evidence_line, "segment": segment.name}
                     ],
                     kb_evidence=[{"chunk_id": "greeting.no_bank.self_intro"}],
+                    metadata={"pass_reason": "valid_ozon_intro"},
                 )
 
         if criterion_id == "congratulation_given":
@@ -211,31 +257,28 @@ class DeterministicChecks:
                     kb_evidence=[{"chunk_id": "docs.must_say_original_passport_rf"}],
                 )
 
-            has_passport = "оригинал паспорта" in manager_text_norm
-            has_rf = ("рф" in manager_text_norm) or ("российской федерации" in manager_text_norm)
-
-            if has_passport and has_rf:
-                evidence_line = _find_matching_manager_line(
-                    segment,
-                    ["оригинал паспорта"],
-                )
+            evidence_line = _find_manager_line_by_predicate(
+                segment,
+                _line_has_original_passport_rf,
+            )
+            if evidence_line:
                 return CriterionResult(
                     criterion_id=criterion_id,
                     decision="pass",
                     score=1.0,
                     confidence=0.95,
-                    rationale_short="Найдено явное упоминание оригинала паспорта РФ.",
+                    rationale_short="Найдено явное упоминание оригинала паспорта РФ или эквивалентной формулировки.",
                     transcript_evidence=[
                         {"text": evidence_line, "segment": segment.name}
                     ],
                     kb_evidence=[{"chunk_id": "docs.must_say_original_passport_rf"}],
                 )
 
-            if has_passport and not has_rf:
-                evidence_line = _find_matching_manager_line(
-                    segment,
-                    ["оригинал паспорта"],
-                )
+            evidence_line = _find_manager_line_by_predicate(
+                segment,
+                _line_has_original_passport_without_rf,
+            )
+            if evidence_line:
                 return CriterionResult(
                     criterion_id=criterion_id,
                     decision="fail",
@@ -265,6 +308,96 @@ class DeterministicChecks:
                         {"text": evidence_line, "segment": segment.name}
                     ],
                     kb_evidence=[{"chunk_id": "docs.must_say_original_passport_rf"}],
+                )
+
+        if criterion_id == "skeptic_no_pressure":
+            pressure_patterns = [
+                "обязательно нужно",
+                "обязательно подключить",
+                "лучше не затягивать",
+                "давайте сразу оформлять",
+                "гарантируем",
+                "точно одобрят",
+            ]
+            if _has_any_pattern(manager_text_norm, pressure_patterns):
+                evidence_line = _find_matching_manager_line(segment, ["обязательно"])
+                if not evidence_line:
+                    evidence_line = _find_matching_manager_line(segment, ["гарант"])
+                if not evidence_line:
+                    evidence_line = _find_matching_manager_line(segment, ["сразу"])
+                return CriterionResult(
+                    criterion_id=criterion_id,
+                    decision="fail",
+                    score=0.0,
+                    confidence=0.96,
+                    rationale_short="В разговоре с осторожным клиентом найдено давление или завышающие обещания.",
+                    transcript_evidence=[
+                        {"text": evidence_line, "segment": segment.name}
+                    ],
+                    kb_evidence=[],
+                )
+
+            if manager_lines:
+                evidence_line = _find_matching_manager_line(segment, ["счет"])
+                if not evidence_line:
+                    evidence_line = _find_matching_manager_line(segment, ["паспорт"])
+                if not evidence_line:
+                    evidence_line = f"manager: {manager_lines[0]}"
+                return CriterionResult(
+                    criterion_id=criterion_id,
+                    decision="pass",
+                    score=1.0,
+                    confidence=0.78,
+                    rationale_short="В разговоре не найдено явного давления или завышающих обещаний.",
+                    transcript_evidence=[
+                        {"text": evidence_line, "segment": segment.name}
+                    ],
+                    kb_evidence=[],
+                )
+
+        if criterion_id == "busy_owner_concise_pitch":
+            manager_utterances = [u for u in segment.utterances if u.speaker == "manager"]
+            if not manager_utterances:
+                return None
+
+            first_line = manager_utterances[0].text
+            first_line_words = _word_count(first_line)
+            total_words = sum(_word_count(utterance.text) for utterance in manager_utterances)
+
+            if first_line_words > 35 or total_words > 55 or len(manager_utterances) >= 3:
+                return CriterionResult(
+                    criterion_id=criterion_id,
+                    decision="fail",
+                    score=0.0,
+                    confidence=0.86,
+                    rationale_short="Основной питч получился слишком длинным для занятого клиента.",
+                    transcript_evidence=[
+                        {"text": f"manager: {first_line}", "segment": segment.name}
+                    ],
+                    kb_evidence=[],
+                    metadata={
+                        "first_line_words": first_line_words,
+                        "total_manager_words": total_words,
+                        "manager_utterances": len(manager_utterances),
+                    },
+                )
+
+            if first_line_words <= 24 and total_words <= 45 and len(manager_utterances) <= 2:
+                return CriterionResult(
+                    criterion_id=criterion_id,
+                    decision="pass",
+                    score=1.0,
+                    confidence=0.82,
+                    rationale_short="Основной питч достаточно короткий и структурный для занятого клиента.",
+                    transcript_evidence=[
+                        {"text": f"manager: {first_line}", "segment": segment.name}
+                    ],
+                    kb_evidence=[],
+                    metadata={
+                        "first_line_words": first_line_words,
+                        "total_manager_words": total_words,
+                        "manager_utterances": len(manager_utterances),
+                    },
                 )
 
         return None

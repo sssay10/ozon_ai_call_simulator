@@ -36,12 +36,30 @@ class JudgeV2Pipeline:
         return "hybrid_kb_v2" if llm_configured else "hybrid_kb_v2_no_llm"
 
     def get_plan(self, scenario_id: str) -> List[dict]:
-        if scenario_id == "novice_ip_no_account_easy":
+        if scenario_id == "novice_ip_no_account_easy" or scenario_id.startswith("rko_novice_l"):
             return [
                 {"criterion_id": "greeting_correct", "segment": "greeting_block"},
                 {"criterion_id": "congratulation_given", "segment": "greeting_block"},
                 {"criterion_id": "compliance_free_account_ip", "segment": "body_block"},
                 {"criterion_id": "compliance_account_docs_ip", "segment": "body_block"},
+            ]
+
+        if scenario_id.startswith("rko_skeptic_l"):
+            return [
+                {"criterion_id": "greeting_correct", "segment": "greeting_block"},
+                {"criterion_id": "congratulation_given", "segment": "greeting_block"},
+                {"criterion_id": "compliance_free_account_ip", "segment": "body_block"},
+                {"criterion_id": "compliance_account_docs_ip", "segment": "body_block"},
+                {"criterion_id": "skeptic_no_pressure", "segment": "body_block"},
+            ]
+
+        if scenario_id.startswith("rko_busy_owner_l"):
+            return [
+                {"criterion_id": "greeting_correct", "segment": "greeting_block"},
+                {"criterion_id": "congratulation_given", "segment": "greeting_block"},
+                {"criterion_id": "compliance_free_account_ip", "segment": "body_block"},
+                {"criterion_id": "compliance_account_docs_ip", "segment": "body_block"},
+                {"criterion_id": "busy_owner_concise_pitch", "segment": "body_block"},
             ]
 
         return []
@@ -96,7 +114,7 @@ class JudgeV2Pipeline:
             )
             results.append(llm_result)
 
-        score = self.scoring.calculate(results)
+        score = self.scoring.calculate(results, scenario_id=transcript.scenario_id)
         relevant_criteria = [item["criterion_id"] for item in plan]
         legacy_response = build_legacy_response(
             session_id=transcript.session_id,

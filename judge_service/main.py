@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from database import Database, DialogueSession, JudgeResult
 from judge import LLMJudge
+from scenario_mapping import resolve_judge_scenario
 from judge_v2.runtime import HybridKBJudge
 from scenarios import DEFAULT_SCENARIO_ID
 
@@ -137,9 +138,37 @@ class TrainingScenarioResponse(BaseModel):
 
 
 def _resolve_scenario_id(product: str | None) -> str:
-    """Single rubric pack for now; `product` reserved for future training-scenario mapping."""
-    _ = product
-    return DEFAULT_SCENARIO_ID
+    resolution = resolve_judge_scenario(product)
+    return resolution.scenario_id
+
+
+def _attach_scenario_resolution(
+    evaluation: dict[str, Any],
+    *,
+    requested_product: str | None,
+    scenario_resolution: Any,
+) -> dict[str, Any]:
+    enriched = dict(evaluation)
+
+    debug_payload = dict(enriched.get("debug") or {})
+    debug_payload["scenario_resolution"] = scenario_resolution.to_debug_dict()
+    enriched["debug"] = debug_payload
+
+    details_parts: list[str] = []
+    if enriched.get("details"):
+        details_parts.append(str(enriched["details"]))
+
+    details_parts.append(
+        "Judge mapping: "
+        f"requested_product={requested_product!r}, "
+        f"scenario_id={scenario_resolution.scenario_id}, "
+        f"exact_match={scenario_resolution.exact_match}"
+    )
+    if scenario_resolution.fallback_reason:
+        details_parts.append(f"Judge mapping fallback: {scenario_resolution.fallback_reason}")
+
+    enriched["details"] = "\n".join(details_parts)
+    return enriched
 
 
 def _serialize_session(row: DialogueSession) -> SessionMetadataResponse:
@@ -295,19 +324,34 @@ async def judge_session(request: JudgeSessionRequest) -> SessionResultResponse:
     if not transcript:
         raise HTTPException(status_code=400, detail="Session has no transcript data")
 
-    scenario_id = _resolve_scenario_id(request.product or session_row.product)
+    requested_product = request.product or session_row.product
+    scenario_resolution = resolve_judge_scenario(requested_product)
+    scenario_id = scenario_resolution.scenario_id
     logger.info(
-        "Judging session %s room=%s product=%s scenario_id=%s",
+        "Judging session %s room=%s product=%s scenario_id=%s exact_match=%s",
         session_row.id,
         session_row.room_name,
-        request.product or session_row.product,
+        requested_product,
         scenario_id,
+        scenario_resolution.exact_match,
     )
+    if scenario_resolution.fallback_reason:
+        logger.warning(
+            "Judge scenario fallback for room=%s product=%s: %s",
+            session_row.room_name,
+            requested_product,
+            scenario_resolution.fallback_reason,
+        )
 
     if judge is None:
         raise HTTPException(status_code=503, detail="Judge is not initialized")
 
     evaluation = judge.evaluate(transcript, scenario_id=scenario_id)
+    evaluation = _attach_scenario_resolution(
+        evaluation,
+        requested_product=requested_product,
+        scenario_resolution=scenario_resolution,
+    )
     judge_row = await database.save_judge_result(str(session_row.id), scenario_id, evaluation)
 
     return SessionResultResponse(
