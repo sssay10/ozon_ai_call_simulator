@@ -10,10 +10,7 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-RUN corepack enable
+FROM deps AS builder
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -45,4 +42,3 @@ USER nextjs
 EXPOSE 3000
 
 CMD ["node", "node_modules/next/dist/bin/next", "start"]
-

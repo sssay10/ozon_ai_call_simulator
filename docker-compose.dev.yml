@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-dialogue}"
       POSTGRES_DB: "${POSTGRES_DB:-dialogues}"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./data/postgres_data:/var/lib/postgresql/data
       - ./agent_service/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -48,6 +48,7 @@ services:
       - "8003:8003"
     environment:
       DATABASE_URL: "${INTERNAL_DATABASE_URL:-postgresql://dialogue:dialogue@postgres:5432/dialogues}"
+      JUDGE_BACKEND: "${JUDGE_BACKEND:-legacy}"
       LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
       OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
