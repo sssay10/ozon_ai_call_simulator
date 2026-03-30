@@ -1,0 +1,54 @@
+{
+  "id": "novice_ip_bad_01",
+  "scenario_id": "novice_ip_no_account_easy",
+  "transcript": [
+    {
+      "role": "manager",
+      "text": "Здравствуйте, вас приветствует Анна из Ozon Банка."
+    },
+    {
+      "role": "client",
+      "text": "Да, слушаю."
+    },
+    {
+      "role": "manager",
+      "text": "У нас для вас счёт бесплатно навсегда, давайте сразу оформлять."
+    },
+    {
+      "role": "client",
+      "text": "Я пока не уверен."
+    },
+    {
+      "role": "manager",
+      "text": "Там всё просто, просто пришлите фото документов и всё сделаем."
+    },
+    {
+      "role": "client",
+      "text": "Каких документов?"
+    },
+    {
+      "role": "manager",
+      "text": "Ну паспорт, что найдёте. Лучше не затягивать, вам обязательно нужно подключить счёт прямо сейчас."
+    },
+    {
+      "role": "client",
+      "text": "Я подумаю."
+    },
+    {
+      "role": "manager",
+      "text": "Тогда жду документы сегодня."
+    }
+  ],
+  "expected": {
+    "scores": {
+      "greeting_correct": false,
+      "congratulation_given": false,
+      "compliance_free_account_ip": false,
+      "compliance_account_docs_ip": false
+    },
+    "critical_errors_contains": [
+      "банк"
+    ],
+    "max_total_score": 4.5
+  }
+}

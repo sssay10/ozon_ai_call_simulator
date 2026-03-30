@@ -21,6 +21,13 @@ type TrainingSessionsViewProps = {
   hideHeader?: boolean;
 };
 
+function toTenPointScore(score?: number | null): number | null {
+  if (typeof score !== 'number' || Number.isNaN(score)) {
+    return null;
+  }
+  return score / 10;
+}
+
 function SessionsScoreChart({ sessions }: { sessions: TrainingSessionSummary[] }) {
   const chartSessions = useMemo(() => {
     return [...sessions]
@@ -33,7 +40,7 @@ function SessionsScoreChart({ sessions }: { sessions: TrainingSessionSummary[] }
       .map((session, index) => ({
         ...session,
         order: index + 1,
-        total_score: Number(session.total_score ?? 0),
+        total_score: toTenPointScore(Number(session.total_score ?? 0)) ?? 0,
       }));
   }, [sessions]);
 
@@ -275,7 +282,9 @@ export function TrainingSessionsView({ ownerUserId, hideHeader = false }: Traini
                     <div className="text-right">
                       <div className="text-muted-foreground text-xs uppercase">Итоговый балл</div>
                       <div className="mt-1 text-2xl font-semibold">
-                        {session.total_score ?? '...'}
+                        {typeof session.total_score === 'number'
+                          ? toTenPointScore(session.total_score)?.toFixed(1)
+                          : '...'}
                       </div>
                     </div>
                     <div className="text-muted-foreground text-xs">

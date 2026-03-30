@@ -1,0 +1,51 @@
+id: eval.congratulation_given
+version: 1
+doc_type: eval_policy
+rule_kind: reference
+priority: high
+
+title: "Политика оценки congratulation_given"
+
+criterion_tags:
+  - congratulation_given
+
+scenario_tags:
+  - novice_ip_no_account_easy
+  - novice_ip_no_account_medium
+
+applicability:
+  stage:
+    - greeting_block
+  legal_form:
+    - ip
+  channel:
+    - phone
+
+canonical_rule: >
+  Критерий считается выполненным, если менеджер в начале разговора
+  явно поздравил клиента с регистрацией или передал эквивалентный
+  смысл поздравления.
+
+pass_conditions:
+  - "Есть явное поздравление с регистрацией"
+  - "Есть эквивалентное поздравление в начале разговора"
+
+fail_conditions:
+  - "Менеджер сразу переходит к продукту без поздравления"
+  - "В приветствии нет поздравления или эквивалентного смысла"
+
+null_conditions:
+  - "Транскрипт оборван до основной приветственной части"
+
+retrieval_hints:
+  keywords:
+    - поздравляю
+    - регистрацией
+    - успешной регистрацией
+    - зарегистрировались
+  evidence_window: greeting_block
+  priority_boost: 1.2
+
+source:
+  source_type: manual
+  source_name: eval_design_v2

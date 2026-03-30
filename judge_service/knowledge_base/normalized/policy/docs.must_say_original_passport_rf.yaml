@@ -1,0 +1,47 @@
+id: docs.must_say_original_passport_rf
+version: 1
+doc_type: policy
+rule_kind: required
+priority: critical
+
+title: "Нужно сообщить про оригинал паспорта РФ"
+
+criterion_tags:
+  - compliance_account_docs_ip
+
+scenario_tags:
+  - novice_ip_no_account_easy
+  - novice_ip_no_account_medium
+
+applicability:
+  stage:
+    - body_block
+  legal_form:
+    - ip
+  channel:
+    - phone
+
+canonical_rule: >
+  Для открытия счета менеджер должен сообщить клиенту о необходимости
+  оригинала паспорта РФ.
+
+positive_examples:
+  - "Понадобится оригинал паспорта РФ."
+  - "Для открытия счета нужен оригинал паспорта Российской Федерации."
+
+negative_examples:
+  - "Нужен паспорт."
+  - "Подготовьте документы."
+
+retrieval_hints:
+  keywords:
+    - оригинал паспорта
+    - паспорт рф
+    - российской федерации
+    - документы для открытия
+  evidence_window: body_block
+  priority_boost: 2.0
+
+source:
+  source_type: excel
+  source_name: bank_docs.xlsx
