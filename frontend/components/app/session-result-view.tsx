@@ -16,18 +16,24 @@ type TranscriptTurn = {
   created_at?: string | null;
 };
 
+type CriterionEval = {
+  explanation: string;
+  /** Бинарно: пройден критерий или нет */
+  score: boolean | number;
+};
+
 type JudgeResult = {
   scenario_id: string;
   scores: Record<string, boolean | number | null>;
+  /** По шагам: compliance | sales | knowledge → criterion_id → { explanation, score } */
+  criteria?: Record<string, Record<string, CriterionEval>>;
   total_score: number;
   critical_errors: string[];
   feedback_positive: string[];
-  feedback_improvement: string[];
   recommendations: string[];
   client_profile: Record<string, unknown>;
   relevant_criteria: string[];
   model_used: string;
-  judge_backend: string;
   error?: string | null;
   details?: string | null;
   created_at?: string | null;
@@ -331,16 +337,39 @@ export function SessionResultView({
                     </div>
                   </div>
 
+                  {data.judge_result.criteria &&
+                    Object.keys(data.judge_result.criteria).length > 0 && (
+                      <div>
+                        <h3 className="font-medium">Критерии по шагам</h3>
+                        <div className="mt-3 flex flex-col gap-4">
+                          {Object.entries(data.judge_result.criteria).map(([step, by]) => (
+                            <div key={step} className="rounded-lg border p-3">
+                              <div className="text-muted-foreground mb-2 text-xs uppercase">{step}</div>
+                              <div className="flex flex-col gap-3">
+                                {Object.entries(by).map(([cid, ev]) => (
+                                  <div key={cid} className="border-border border-t pt-2 first:border-t-0 first:pt-0">
+                                    <div className="text-xs font-medium">{cid}</div>
+                                    <div className="text-muted-foreground mt-1 text-sm">
+                                      {typeof ev.score === 'boolean'
+                                        ? ev.score
+                                          ? 'Пройдено'
+                                          : 'Не пройдено'
+                                        : `Балл: ${typeof ev.score === 'number' ? ev.score.toFixed(0) : String(ev.score)}`}
+                                    </div>
+                                    <p className="mt-1 text-sm">{ev.explanation}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   <FeedbackSection
                     title="Что хорошо"
                     items={data.judge_result.feedback_positive}
                     itemClassName="border-green-500/20 bg-green-500/10 text-green-950 dark:text-green-100"
-                  />
-
-                  <FeedbackSection
-                    title="Что улучшить"
-                    items={data.judge_result.feedback_improvement}
-                    itemClassName="border-yellow-500/20 bg-yellow-500/10 text-yellow-950 dark:text-yellow-100"
                   />
 
                   <FeedbackSection

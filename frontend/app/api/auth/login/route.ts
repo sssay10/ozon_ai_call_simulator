@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME } from '@/lib/auth';
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL;
+const BACKEND_SERVICE_URL = process.env.BACKEND_SERVICE_URL ?? process.env.AUTH_SERVICE_URL;
 
 export const revalidate = 0;
 
 export async function POST(req: Request) {
   try {
-    if (!AUTH_SERVICE_URL) {
-      throw new Error('AUTH_SERVICE_URL is not defined');
+    if (!BACKEND_SERVICE_URL) {
+      throw new Error('BACKEND_SERVICE_URL is not defined');
     }
 
     const body = await req.json();
-    const response = await fetch(new URL('/api/auth/login', AUTH_SERVICE_URL).toString(), {
+    const response = await fetch(new URL('/api/auth/login', BACKEND_SERVICE_URL).toString(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

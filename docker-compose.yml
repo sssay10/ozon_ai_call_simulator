@@ -1,4 +1,4 @@
-# Project root: STT, TTS, auth, LiveKit server, Postgres, and judge_service.
+# Project root: STT, TTS, backend, LiveKit server, Postgres, and judge_service.
 # Agent (agent-starter-python) runs separately; set STT_SERVICE_URL, TTS_SERVICE_URL, DATABASE_URL, JUDGE_SERVICE_URL.
 
 services:
@@ -39,6 +39,17 @@ services:
     ports:
       - "8002:8002"
 
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: chroma-server
+    restart: unless-stopped
+    ports:
+      - "${CHROMA_HOST_PORT:-8005}:8000"
+    volumes:
+      - chroma_data:/data
+    environment:
+      ANONYMIZED_TELEMETRY: "FALSE"
+
   judge_service:
     build:
       context: ./judge_service
@@ -47,23 +58,21 @@ services:
     restart: unless-stopped
     depends_on:
       - postgres
+      - chroma
     ports:
       - "8003:8003"
     environment:
       DATABASE_URL: "${INTERNAL_DATABASE_URL:-postgresql://dialogue:dialogue@postgres:5432/dialogues}"
-      JUDGE_BACKEND: "${JUDGE_BACKEND:-legacy}"
-      LLM_PROVIDER: "${LLM_PROVIDER:-openrouter}"
-      OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
-      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
-      OPENROUTER_MODEL: "${JUDGE_OPENROUTER_MODEL:-openai/gpt-4o-mini}"
-      OLLAMA_BASE_URL: "${JUDGE_OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
-      OLLAMA_MODEL: "${JUDGE_OLLAMA_MODEL:-qwen2:7b-instruct-q4_K_M}"
+      JUDGE_SERVICE_ROOT: /app
+      CHROMA_HTTP_HOST: chroma
+      CHROMA_HTTP_PORT: "8000"
+      KNOWLEDGE_RAG: "${JUDGE_KNOWLEDGE_RAG:-1}"
 
-  auth_service:
+  backend_service:
     build:
-      context: ./auth_service
+      context: ./backend_service
       dockerfile: Dockerfile
-    container_name: auth-service
+    container_name: backend-service
     restart: unless-stopped
     depends_on:
       - postgres
@@ -134,12 +143,12 @@ services:
     container_name: frontend
     restart: unless-stopped
     depends_on:
-      - auth_service
+      - backend_service
       - judge_service
       - livekit
     environment:
       # Auth & judge backends inside the Compose network
-      AUTH_SERVICE_URL: "${INTERNAL_AUTH_SERVICE_URL:-http://auth_service:8004}"
+      BACKEND_SERVICE_URL: "${INTERNAL_BACKEND_SERVICE_URL:-http://backend_service:8004}"
       JUDGE_SERVICE_URL: "${INTERNAL_JUDGE_SERVICE_URL:-http://judge_service:8003}"
 
       # LiveKit connection used by the /api/token route (browser connects via HTTPS/WSS through Caddy)
@@ -160,3 +169,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy_data:/data
       - ./data/caddy_config:/config
+
+volumes:
+  chroma_data:

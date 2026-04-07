@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS dialogue_sessions (
     room_name TEXT NOT NULL,
     job_id TEXT,
     product TEXT NOT NULL,
+    training_scenario_id UUID,
     owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     ended_at TIMESTAMPTZ
@@ -89,6 +90,24 @@ CREATE TABLE IF NOT EXISTS training_scenarios (
 
 CREATE INDEX IF NOT EXISTS idx_training_scenarios_updated_at ON training_scenarios(updated_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_training_scenarios_name ON training_scenarios(name);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_dialogue_sessions_training_scenario_id'
+    ) THEN
+        ALTER TABLE dialogue_sessions
+            ADD CONSTRAINT fk_dialogue_sessions_training_scenario_id
+            FOREIGN KEY (training_scenario_id)
+            REFERENCES training_scenarios(id)
+            ON DELETE SET NULL;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_dialogue_sessions_training_scenario_id
+    ON dialogue_sessions(training_scenario_id);
 
 -- Preloaded RKO scenarios: 3 personas × 4 intensity levels (coach user as author)
 INSERT INTO training_scenarios (name, persona_description, scenario_description, created_by_user_id)

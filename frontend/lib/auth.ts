@@ -11,16 +11,16 @@ export type AppUser = {
 
 export const AUTH_COOKIE_NAME = 'app_auth_token';
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL;
+const BACKEND_SERVICE_URL = process.env.BACKEND_SERVICE_URL ?? process.env.AUTH_SERVICE_URL;
 
 async function fetchCurrentUser(token: string): Promise<AppUser | null> {
-  if (!AUTH_SERVICE_URL) {
-    console.error('AUTH_SERVICE_URL is not defined');
+  if (!BACKEND_SERVICE_URL) {
+    console.error('BACKEND_SERVICE_URL is not defined');
     return null;
   }
 
   try {
-    const response = await fetch(new URL('/api/auth/me', AUTH_SERVICE_URL).toString(), {
+    const response = await fetch(new URL('/api/auth/me', BACKEND_SERVICE_URL).toString(), {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,

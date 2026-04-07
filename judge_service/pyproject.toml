@@ -1,25 +1,19 @@
 [project]
-name = "judge-service"
+name = "judge-service-new"
 version = "0.1.0"
-description = "Judge service for evaluating training sessions"
+description = "Dummy judge service for frontend integration"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "fastapi>=0.122.0",
-    "uvicorn[standard]>=0.38.0",
-    "pydantic>=2.0.0",
-    "httpx>=0.24.0",
-    "sqlalchemy>=2.0.0",
     "asyncpg>=0.29.0",
-    "python-dotenv>=1.0.0",
-    "ollama>=0.1.0",
+    "fastapi>=0.122.0",
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
+    "uvicorn[standard]>=0.38.0",
+    "pydantic>=2.0.0",
+    "langgraph>=1.1.4",
     "langchain-community>=0.3.0",
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=7.0.0",
+    "chromadb>=1.5.6",
+    "openpyxl>=3.1.5",
 ]
 
 [build-system]
@@ -27,5 +21,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["main", "database", "judge", "evaluation_models", "scenarios"]
+py-modules = [
+    "main",
+]
 
+[tool.setuptools.packages.find]
+where = ["."]

@@ -3,5 +3,5 @@ __pycache__
 *.pyc
 .git
 .env
-README.md
-poetry.lock
+eval_dataset
+scripts

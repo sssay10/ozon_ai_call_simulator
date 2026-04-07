@@ -36,6 +36,7 @@ class DialogueLogger:
         job_id: str | None,
         product: str,
         owner_user_id: str,
+        training_scenario_id: str | None = None,
     ) -> UUID | None:
         """Insert a session row; return session id or None on error."""
         if not owner_user_id.strip():
@@ -45,15 +46,29 @@ class DialogueLogger:
             conn = await self._get_conn()
             row = await conn.fetchrow(
                 """
-                INSERT INTO dialogue_sessions (room_name, job_id, product, owner_user_id)
-                VALUES ($1, $2, $3, $4::uuid)
+                INSERT INTO dialogue_sessions (
+                    room_name,
+                    job_id,
+                    product,
+                    owner_user_id,
+                    training_scenario_id
+                )
+                VALUES ($1, $2, $3, $4::uuid, NULLIF($5, '')::uuid)
                 RETURNING id
                 """,
                 room_name,
                 job_id or "",
                 product,
                 owner_user_id,
+                (training_scenario_id or "").strip(),
             )
+            if row:
+                logger.info(
+                    "dialogue session created: id=%s room=%s training_scenario_id=%s",
+                    row["id"],
+                    room_name,
+                    (training_scenario_id or "").strip(),
+                )
             return row["id"] if row else None
         except Exception as e:
             logger.exception("create_session failed: %s", e)

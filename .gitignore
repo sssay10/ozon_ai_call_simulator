@@ -11,3 +11,7 @@ __pycache__
 data
 
 bank_docs.xlsx
+corp_data.xlsx
+
+# judge_service RAG (ONNX embed cache; Chroma data lives in Docker volume chroma_data)
+judge_service/.cache/

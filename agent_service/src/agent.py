@@ -140,6 +140,7 @@ async def my_agent(ctx: JobContext):
             job_id=getattr(ctx.job, "id", None) or "",
             product=db_product,
             owner_user_id=owner_user_id,
+            training_scenario_id=meta.get("training_scenario_id", ""),
         )
         if db_session_id:
             loop = asyncio.get_running_loop()

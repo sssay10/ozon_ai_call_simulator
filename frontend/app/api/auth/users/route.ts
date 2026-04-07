@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthToken, getCurrentUser } from '@/lib/auth';
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL;
+const BACKEND_SERVICE_URL = process.env.BACKEND_SERVICE_URL ?? process.env.AUTH_SERVICE_URL;
 
 export const revalidate = 0;
 
@@ -15,11 +15,11 @@ export async function GET() {
     if (currentUser.role !== 'coach') {
       return new NextResponse('Forbidden', { status: 403 });
     }
-    if (!AUTH_SERVICE_URL) {
-      throw new Error('AUTH_SERVICE_URL is not defined');
+    if (!BACKEND_SERVICE_URL) {
+      throw new Error('BACKEND_SERVICE_URL is not defined');
     }
 
-    const response = await fetch(new URL('/api/auth/users', AUTH_SERVICE_URL).toString(), {
+    const response = await fetch(new URL('/api/auth/users', BACKEND_SERVICE_URL).toString(), {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -52,12 +52,12 @@ export async function POST(req: Request) {
     if (currentUser.role !== 'coach') {
       return new NextResponse('Forbidden', { status: 403 });
     }
-    if (!AUTH_SERVICE_URL) {
-      throw new Error('AUTH_SERVICE_URL is not defined');
+    if (!BACKEND_SERVICE_URL) {
+      throw new Error('BACKEND_SERVICE_URL is not defined');
     }
 
     const body = await req.text();
-    const response = await fetch(new URL('/api/auth/users', AUTH_SERVICE_URL).toString(), {
+    const response = await fetch(new URL('/api/auth/users', BACKEND_SERVICE_URL).toString(), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

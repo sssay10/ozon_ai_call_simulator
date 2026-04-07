@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { AUTH_COOKIE_NAME } from '@/lib/auth';
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL;
+const BACKEND_SERVICE_URL = process.env.BACKEND_SERVICE_URL ?? process.env.AUTH_SERVICE_URL;
 
 export const revalidate = 0;
 
 export async function POST() {
   try {
-    if (AUTH_SERVICE_URL) {
-      await fetch(new URL('/api/auth/logout', AUTH_SERVICE_URL).toString(), {
+    if (BACKEND_SERVICE_URL) {
+      await fetch(new URL('/api/auth/logout', BACKEND_SERVICE_URL).toString(), {
         method: 'POST',
         cache: 'no-store',
       });

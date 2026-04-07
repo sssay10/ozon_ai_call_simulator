@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, getRoleAccessHeaders } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 const JUDGE_SERVICE_URL = process.env.JUDGE_SERVICE_URL;
 
@@ -23,18 +23,23 @@ export async function GET(req: Request) {
     if (!roomName && !sessionId) {
       return new NextResponse('roomName or sessionId is required', { status: 400 });
     }
+    if (roomName && sessionId) {
+      return new NextResponse('Provide only one of roomName or sessionId', { status: 400 });
+    }
 
     const judgeUrl = new URL('/api/session-results', JUDGE_SERVICE_URL);
-    if (roomName) {
-      judgeUrl.searchParams.set('room_name', roomName);
-    }
     if (sessionId) {
       judgeUrl.searchParams.set('session_id', sessionId);
+    } else if (roomName) {
+      judgeUrl.searchParams.set('room_name', roomName);
+    }
+    const refresh = url.searchParams.get('refresh');
+    if (refresh === '1' || refresh === 'true') {
+      judgeUrl.searchParams.set('refresh', 'true');
     }
 
     const response = await fetch(judgeUrl.toString(), {
       cache: 'no-store',
-      headers: getRoleAccessHeaders(currentUser),
     });
     const text = await response.text();
     return new NextResponse(text, {

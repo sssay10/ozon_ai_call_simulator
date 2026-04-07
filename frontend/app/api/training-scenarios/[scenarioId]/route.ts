@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, getRoleAccessHeaders } from '@/lib/auth';
+import { getAuthToken, getCurrentUser } from '@/lib/auth';
 
-const JUDGE_SERVICE_URL = process.env.JUDGE_SERVICE_URL;
+const BACKEND_SERVICE_URL = process.env.BACKEND_SERVICE_URL;
 
 export const revalidate = 0;
 
@@ -11,23 +11,24 @@ export async function PUT(
 ) {
   try {
     const currentUser = await getCurrentUser();
-    if (!currentUser) {
+    const token = await getAuthToken();
+    if (!currentUser || !token) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
-    if (!JUDGE_SERVICE_URL) {
-      throw new Error('JUDGE_SERVICE_URL is not defined');
+    if (!BACKEND_SERVICE_URL) {
+      throw new Error('BACKEND_SERVICE_URL is not defined');
     }
 
     const { scenarioId } = await params;
-    const judgeUrl = new URL(
+    const backendUrl = new URL(
       `/api/training-scenarios/${encodeURIComponent(scenarioId)}`,
-      JUDGE_SERVICE_URL
+      BACKEND_SERVICE_URL
     );
-    const response = await fetch(judgeUrl.toString(), {
+    const response = await fetch(backendUrl.toString(), {
       method: 'PUT',
       cache: 'no-store',
       headers: {
-        ...getRoleAccessHeaders(currentUser),
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: await req.text(),
