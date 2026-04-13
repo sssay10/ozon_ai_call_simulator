@@ -33,8 +33,8 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 # Chroma for LLMJudge / RAG: same defaults as ingest (see chroma_script_defaults.py).
-from chroma_script_defaults import CHROMA_HOST, CHROMA_PORT
-
+CHROMA_HOST = os.getenv("CHROMA_HTTP_HOST", "0.0.0.0")
+CHROMA_PORT = os.getenv("CHROMA_HTTP_PORT", "8005")
 os.environ.setdefault("CHROMA_HTTP_HOST", CHROMA_HOST)
 os.environ.setdefault("CHROMA_HTTP_PORT", str(CHROMA_PORT))
 os.environ.setdefault("JUDGE_SERVICE_ROOT", str(_ROOT))

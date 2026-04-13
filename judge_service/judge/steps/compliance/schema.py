@@ -7,19 +7,22 @@ from pydantic import BaseModel, Field
 from judge.steps.shared.criterion import CriterionEvaluation
 
 
-class ComplianceStepOutput(BaseModel):
+class ComplianceLlmOutput(BaseModel):
+    """Поля, которые заполняет только LLM (structured output)."""
+
     greeting_ozon: CriterionEvaluation = Field(
         ...,
         description=(
-            "Приветствие: менеджер представился как сотрудник OZON кириллицей (Озон), без склонения слова «Озон»; "
-            "в духе «Это [Имя] из OZON». Оцени соблюдение и кратко обоснуй по транскрипту."
+            "Приветствие: менеджер представился как сотрудник ОЗОН кириллицей без склонения; "
+            "в духе «Это [Имя] из ОЗОН». Оцени соблюдение и кратко обоснуй по транскрипту."
         ),
     )
-    stop_words: CriterionEvaluation = Field(
+    post_answer_time_requests: CriterionEvaluation = Field(
         ...,
         description=(
-            "Стоп-слова: не использовалось слово «банк»; нет фраз вроде «Удобно говорить?», «Уделите пару минут?» "
-            "и аналогичных просьб «разрешить» разговор после того как клиент уже ответил на звонок."
+            "Просьбы «разрешить» разговор после того, как клиент уже ответил на звонок: не должно быть вопросов "
+            "вроде «Удобно говорить?», «Уделите пару минут?», «Могу уделить минуту?» и близких по смыслу — "
+            "клиент уже принял вызов, повторная «вежливая» просьба о времени считается нарушением."
         ),
     )
     forbidden_qualification: CriterionEvaluation = Field(
@@ -55,4 +58,16 @@ class ComplianceStepOutput(BaseModel):
     feedback_improvement: list[str] = Field(
         default_factory=list,
         description="Что улучшить по этому шагу: практичные подсказки без общих фраз.",
+    )
+
+
+class ComplianceStepOutput(ComplianceLlmOutput):
+    """Полный результат шага: к выводу LLM добавляется критерий стоп-слов из кода."""
+
+    stop_words: CriterionEvaluation = Field(
+        ...,
+        description=(
+            "Стоп-слова по фиксированным правилам шага (без LLM): совпадения с заданными в коде шаблонами "
+            "только в репликах менеджера. Поле заполняется кодом судьи, модель его не оценивает."
+        ),
     )
