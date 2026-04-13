@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import asdict
 
+import httpx
 import jwt
 from asyncpg import UniqueViolationError
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, EmailStr, Field
 
 from database import Database
@@ -35,6 +38,7 @@ app.add_middleware(
 )
 
 database = Database()
+JUDGE_SERVICE_URL = os.getenv("JUDGE_SERVICE_URL")
 
 
 class LoginRequest(BaseModel):
@@ -264,3 +268,42 @@ async def update_training_scenario(
     if row is None:
         raise HTTPException(status_code=404, detail="Training scenario not found")
     return TrainingScenarioResponse(**asdict(row))
+
+
+@app.get("/api/session-results")
+async def get_session_results(
+    session_id: str | None = Query(default=None),
+    room_name: str | None = Query(default=None),
+    refresh: bool = Query(default=False),
+    _: AuthUserResponse = Depends(get_current_user),
+) -> Response:
+    if not JUDGE_SERVICE_URL:
+        raise HTTPException(status_code=500, detail="JUDGE_SERVICE_URL is not defined")
+    if not room_name and not session_id:
+        raise HTTPException(status_code=400, detail="room_name or session_id is required")
+    if room_name and session_id:
+        raise HTTPException(status_code=400, detail="Provide only one of room_name or session_id")
+
+    judge_url = httpx.URL(f"{JUDGE_SERVICE_URL.rstrip('/')}/api/session-results")
+    params: dict[str, str] = {}
+    if session_id:
+        params["session_id"] = session_id
+    if room_name:
+        params["room_name"] = room_name
+    if refresh:
+        params["refresh"] = "true"
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            upstream = await client.get(str(judge_url), params=params)
+    except httpx.HTTPError as exc:
+        logger.exception("Failed to call judge service for session results")
+        raise HTTPException(status_code=502, detail="Failed to reach judge service") from exc
+
+    content_type = upstream.headers.get("content-type", "application/json")
+    return Response(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=content_type.split(";", 1)[0],
+        headers={"Cache-Control": "no-store"},
+    )

@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getAuthToken, getCurrentUser } from '@/lib/auth';
 
-const JUDGE_SERVICE_URL = process.env.JUDGE_SERVICE_URL;
+const BACKEND_SERVICE_URL = process.env.BACKEND_SERVICE_URL;
 
 export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
     const currentUser = await getCurrentUser();
-    if (!currentUser) {
+    const token = await getAuthToken();
+    if (!currentUser || !token) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    if (!JUDGE_SERVICE_URL) {
-      throw new Error('JUDGE_SERVICE_URL is not defined');
+    if (!BACKEND_SERVICE_URL) {
+      throw new Error('BACKEND_SERVICE_URL is not defined');
     }
 
     const url = new URL(req.url);
@@ -27,19 +28,22 @@ export async function GET(req: Request) {
       return new NextResponse('Provide only one of roomName or sessionId', { status: 400 });
     }
 
-    const judgeUrl = new URL('/api/session-results', JUDGE_SERVICE_URL);
+    const backendUrl = new URL('/api/session-results', BACKEND_SERVICE_URL);
     if (sessionId) {
-      judgeUrl.searchParams.set('session_id', sessionId);
+      backendUrl.searchParams.set('session_id', sessionId);
     } else if (roomName) {
-      judgeUrl.searchParams.set('room_name', roomName);
+      backendUrl.searchParams.set('room_name', roomName);
     }
     const refresh = url.searchParams.get('refresh');
     if (refresh === '1' || refresh === 'true') {
-      judgeUrl.searchParams.set('refresh', 'true');
+      backendUrl.searchParams.set('refresh', 'true');
     }
 
-    const response = await fetch(judgeUrl.toString(), {
+    const response = await fetch(backendUrl.toString(), {
       cache: 'no-store',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
     const text = await response.text();
     return new NextResponse(text, {
