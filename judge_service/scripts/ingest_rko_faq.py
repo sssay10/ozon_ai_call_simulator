@@ -14,18 +14,20 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import os
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from chroma_script_defaults import CHROMA_HOST, CHROMA_PORT
-
 FAQ_XLSX = _ROOT / "corp_data.xlsx"
 
 from judge.knowledge_rag.chroma_store import ChromaFAQStore
 
+
+CHROMA_HTTP_HOST = os.getenv("CHROMA_HTTP_HOST", "0.0.0.0")
+CHROMA_HTTP_PORT = os.getenv("CHROMA_HTTP_PORT", "8005")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("ingest_rko_faq")
 
@@ -47,12 +49,12 @@ def main() -> int:
         return 1
 
     store = ChromaFAQStore(
-        http_host=CHROMA_HOST,
-        http_port=CHROMA_PORT,
+        http_host=CHROMA_HTTP_HOST,
+        http_port=CHROMA_HTTP_PORT,
         xlsx_path=xlsx,
     )
     n = store.ingest_from_xlsx(xlsx)
-    logger.info("Done: %s FAQ documents -> %s:%s", n, CHROMA_HOST, CHROMA_PORT)
+    logger.info("Done: %s FAQ documents -> %s:%s", n, CHROMA_HTTP_HOST, CHROMA_HTTP_PORT)
     return 0
 
 

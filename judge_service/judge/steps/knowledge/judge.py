@@ -29,10 +29,11 @@ class KnowledgeValidationStepJudge:
         self._structured = llm.with_structured_output(
             KnowledgeStepOutput,
             method="function_calling",
+            include_raw=True,
         )
         self._faq_store = faq_store
         self._rag_top_k = (
-            rag_top_k if rag_top_k is not None else int(os.getenv("RAG_TOP_K", "8"))
+            rag_top_k if rag_top_k is not None else int(os.getenv("RAG_TOP_K", "4"))
         )
         self._rag_max_chars = int(os.getenv("RAG_QUERY_MAX_CHARS", "12000"))
 
@@ -66,9 +67,9 @@ class KnowledgeValidationStepJudge:
             len(q),
             self._rag_top_k,
         )
-        lines = ["### Фрагменты справочника РсВ ФАК (семантический поиск)", ""]
+        lines = ["relevant knowledge snippets: ", ""]
         for i, block in enumerate(snippets, 1):
-            lines.append(f"--- {i} ---")
+            lines.append(f"snippet {i}:")
             lines.append(block)
             lines.append("")
         return "\n".join(lines) + "\n"
@@ -88,8 +89,14 @@ class KnowledgeValidationStepJudge:
             HumanMessage(content=user),
         ]
         out = await self._structured.ainvoke(messages)
-        if isinstance(out, KnowledgeStepOutput):
-            return out
-        if isinstance(out, dict):
-            return KnowledgeStepOutput.model_validate(out)
-        raise ValueError(f"Unexpected knowledge step output: {type(out)}")
+        try:
+            payload = out["parsed"]  # Expect include_raw envelope from with_structured_output.
+            return KnowledgeStepOutput.model_validate(payload)
+        except Exception as exc:
+            parsing_error = getattr(out, "get", lambda _key: None)("parsing_error")
+            logger.exception(
+                "Knowledge parsing failed: parsing_error=%r raw_response=%r",
+                parsing_error,
+                out,
+            )
+            raise ValueError("Knowledge parsing failed; see raw_response in logs") from exc

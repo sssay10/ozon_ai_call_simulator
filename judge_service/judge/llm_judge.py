@@ -5,7 +5,7 @@ import os
 import time
 from typing import Any, TypeVar
 
-from langchain_community.chat_models import ChatOllama
+from langchain_ollama import ChatOllama
 
 from judge.knowledge_rag.chroma_store import get_faq_store
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -44,7 +44,8 @@ class LLMJudge:
             base_llm = ChatOllama(
                 model=ollama_model,
                 base_url=ollama_base_url,
-                temperature=0.2,
+                temperature=0,
+                reasoning=True,
             )
             self.backend_name = "ollama"
             logger.info(
