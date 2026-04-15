@@ -57,7 +57,7 @@ class TrainingScenarioRecord:
     id: str
     name: str
     persona_description: str
-    scenario_description: str
+    main_pain: str
     created_by_user_id: str
     created_at: str | None
     updated_at: str | None
@@ -241,7 +241,7 @@ class Database:
                     id,
                     name,
                     persona_description,
-                    scenario_description,
+                    main_pain,
                     created_by_user_id,
                     created_at,
                     updated_at
@@ -254,7 +254,7 @@ class Database:
                 id=str(row["id"]),
                 name=row["name"],
                 persona_description=row["persona_description"],
-                scenario_description=row["scenario_description"],
+                main_pain=row["main_pain"],
                 created_by_user_id=str(row["created_by_user_id"]),
                 created_at=row["created_at"].isoformat() if row["created_at"] else None,
                 updated_at=row["updated_at"].isoformat() if row["updated_at"] else None,
@@ -267,34 +267,34 @@ class Database:
         *,
         name: str,
         persona_description: str,
-        scenario_description: str,
+        main_pain: str,
         created_by_user_id: str,
     ) -> TrainingScenarioRecord:
         pool = self._require_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
-                INSERT INTO training_scenarios (name, persona_description, scenario_description, created_by_user_id)
+                INSERT INTO training_scenarios (name, persona_description, main_pain, created_by_user_id)
                 VALUES ($1, $2, $3, $4::uuid)
                 RETURNING
                     id,
                     name,
                     persona_description,
-                    scenario_description,
+                    main_pain,
                     created_by_user_id,
                     created_at,
                     updated_at
                 """,
                 name.strip(),
                 persona_description.strip(),
-                scenario_description.strip(),
+                main_pain.strip(),
                 created_by_user_id,
             )
         return TrainingScenarioRecord(
             id=str(row["id"]),
             name=row["name"],
             persona_description=row["persona_description"],
-            scenario_description=row["scenario_description"],
+            main_pain=row["main_pain"],
             created_by_user_id=str(row["created_by_user_id"]),
             created_at=row["created_at"].isoformat() if row["created_at"] else None,
             updated_at=row["updated_at"].isoformat() if row["updated_at"] else None,
@@ -306,7 +306,7 @@ class Database:
         scenario_id: str,
         name: str,
         persona_description: str,
-        scenario_description: str,
+        main_pain: str,
     ) -> TrainingScenarioRecord | None:
         pool = self._require_pool()
         async with pool.acquire() as conn:
@@ -316,14 +316,14 @@ class Database:
                 SET
                     name = $2,
                     persona_description = $3,
-                    scenario_description = $4,
+                    main_pain = $4,
                     updated_at = $5::timestamptz
                 WHERE id = $1::uuid
                 RETURNING
                     id,
                     name,
                     persona_description,
-                    scenario_description,
+                    main_pain,
                     created_by_user_id,
                     created_at,
                     updated_at
@@ -331,7 +331,7 @@ class Database:
                 scenario_id,
                 name.strip(),
                 persona_description.strip(),
-                scenario_description.strip(),
+                main_pain.strip(),
                 datetime.now().astimezone(),
             )
         if row is None:
@@ -340,7 +340,7 @@ class Database:
             id=str(row["id"]),
             name=row["name"],
             persona_description=row["persona_description"],
-            scenario_description=row["scenario_description"],
+            main_pain=row["main_pain"],
             created_by_user_id=str(row["created_by_user_id"]),
             created_at=row["created_at"].isoformat() if row["created_at"] else None,
             updated_at=row["updated_at"].isoformat() if row["updated_at"] else None,

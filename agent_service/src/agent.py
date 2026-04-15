@@ -10,6 +10,7 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
+    function_tool,
 )
 from livekit.agents.stt import StreamAdapter
 from livekit.plugins import openai, silero
@@ -20,7 +21,11 @@ from dialogue_logging import (
     make_conversation_item_callback,
     trigger_judge_session,
 )
-from session_settings import build_system_prompt, parse_session_metadata
+from session_settings import (
+    build_disclosure_prompt,
+    build_system_prompt,
+    parse_session_metadata,
+)
 from stt_tone import ToneSTT
 from tts_silero import SileroTTS
 
@@ -31,8 +36,57 @@ load_dotenv(".env.local")
 
 
 class Assistant(Agent):
-    def __init__(self, instructions: str) -> None:
+    def __init__(self, instructions: str, *, main_pain: str = "") -> None:
+        self._main_pain = main_pain.strip()
+        self._hangup_requested = False
+        self._hangup_reason = ""
+
         super().__init__(instructions=instructions)
+
+    @function_tool(
+        name="request_additional_client_info",
+        description=(
+            "Запросить дополнительную информацию о клиенте (ключевая боль и список релевантных вопросов)."
+            " Вызывай только когда менеджер уже установил контакт: спросил о болях/потребностях"
+            " или связал преимущества банка с ситуацией клиента."
+            " После вызова можно подробнее раскрывать проблему клиента."
+        ),
+    )
+    async def request_additional_client_info(self, reason: str) -> str:
+        logger.info("request_additional_client_info reason=%s", reason.strip())
+
+        result = build_disclosure_prompt(
+            info_unlocked=True,
+            main_pain=self._main_pain,
+        )
+        logger.info("additional client info tool result=%s", result)
+        return result
+
+    @function_tool(
+        name="end_call_due_to_rudeness",
+        description=(
+            "Завершить звонок из-за грубого тона менеджера."
+            " Вызывай после предупреждения, если грубость повторяется."
+            " После вызова коротко попрощайся и не продолжай диалог."
+        ),
+    )
+    async def end_call_due_to_rudeness(self, reason: str) -> str:
+        cleaned_reason = reason.strip()
+        self._hangup_requested = True
+        self._hangup_reason = cleaned_reason
+        logger.info("end_call_due_to_rudeness reason=%s", cleaned_reason)
+        return (
+            "Звонок должен быть завершен из-за повторной грубости менеджера. "
+            "Скажи короткую финальную фразу и заверши разговор."
+        )
+
+    @property
+    def hangup_requested(self) -> bool:
+        return self._hangup_requested
+
+    @property
+    def hangup_reason(self) -> str:
+        return self._hangup_reason
 
 
 server = AgentServer()
@@ -118,8 +172,13 @@ async def my_agent(ctx: JobContext):
     )
 
     # Start the session, which initializes the voice pipeline and warms up the models
+    assistant = Assistant(
+        instructions=instructions,
+        main_pain=(meta.get("prompt_blocks") or {}).get("main_pain", ""),
+    )
+
     await session.start(
-        agent=Assistant(instructions=instructions),
+        agent=assistant,
         room=ctx.room,
     )
 
@@ -165,6 +224,19 @@ async def my_agent(ctx: JobContext):
             ctx.add_shutdown_callback(_finalize_session)
         else:
             ctx.add_shutdown_callback(dialogue_logger.close)
+
+    shutdown_scheduled = False
+
+    def _maybe_shutdown_call(_event) -> None:
+        nonlocal shutdown_scheduled
+        if shutdown_scheduled or not assistant.hangup_requested:
+            return
+        shutdown_scheduled = True
+        reason = assistant.hangup_reason or "rudeness"
+        logger.info("Call termination requested by agent, reason=%s", reason)
+        asyncio.create_task(ctx.shutdown(reason=f"client_hangup:{reason}"))
+
+    session.on("conversation_item_added", _maybe_shutdown_call)
 
 
 

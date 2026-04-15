@@ -162,7 +162,6 @@ async def _run() -> int:
                 try:
                     eval_payload = await judge.evaluate(
                         persona_description=ctx["persona_description"],
-                        scenario_description=ctx["scenario_description"],
                         transcript=transcript,
                     )
                 except Exception as exc:

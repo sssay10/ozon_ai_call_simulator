@@ -78,14 +78,14 @@ class SessionListItemResponse(BaseModel):
 class TrainingScenarioUpsertRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     persona_description: str = Field(min_length=1)
-    scenario_description: str = Field(min_length=1)
+    main_pain: str = Field(min_length=1)
 
 
 class TrainingScenarioResponse(BaseModel):
     id: str
     name: str
     persona_description: str
-    scenario_description: str
+    main_pain: str
     created_by_user_id: str
     created_at: str | None = None
     updated_at: str | None = None
@@ -247,7 +247,7 @@ async def create_training_scenario(
     row = await database.create_training_scenario(
         name=request.name,
         persona_description=request.persona_description,
-        scenario_description=request.scenario_description,
+        main_pain=request.main_pain,
         created_by_user_id=current_user.user_id,
     )
     return TrainingScenarioResponse(**asdict(row))
@@ -263,7 +263,7 @@ async def update_training_scenario(
         scenario_id=scenario_id,
         name=request.name,
         persona_description=request.persona_description,
-        scenario_description=request.scenario_description,
+        main_pain=request.main_pain,
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Training scenario not found")

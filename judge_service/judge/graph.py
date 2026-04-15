@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 class JudgeGraphState(TypedDict):
     persona_description: str
-    scenario_description: str
     transcript_text: str
     compliance: NotRequired[ComplianceStepOutput]
     sales: NotRequired[SalesSkillsStepOutput]
@@ -45,7 +44,6 @@ def build_evaluation_graph(
         t0 = time.perf_counter()
         out = await compliance_judge.run(
             persona_description=state["persona_description"],
-            scenario_description=state["scenario_description"],
             transcript_text=state["transcript_text"],
         )
         logger.info("graph node compliance done in %.2fs", time.perf_counter() - t0)
@@ -55,7 +53,6 @@ def build_evaluation_graph(
         t0 = time.perf_counter()
         out = await sales_judge.run(
             persona_description=state["persona_description"],
-            scenario_description=state["scenario_description"],
             transcript_text=state["transcript_text"],
         )
         logger.info("graph node sales done in %.2fs", time.perf_counter() - t0)
@@ -65,7 +62,6 @@ def build_evaluation_graph(
         t0 = time.perf_counter()
         out = await knowledge_judge.run(
             persona_description=state["persona_description"],
-            scenario_description=state["scenario_description"],
             transcript_text=state["transcript_text"],
         )
         logger.info("graph node knowledge done in %.2fs", time.perf_counter() - t0)

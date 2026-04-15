@@ -71,8 +71,7 @@ class Database:
                     ds.started_at,
                     ds.ended_at,
                     ds.training_scenario_id,
-                    ts.persona_description,
-                    ts.scenario_description
+                    ts.persona_description
                 FROM dialogue_sessions ds
                 LEFT JOIN training_scenarios ts
                     ON ts.id = ds.training_scenario_id
@@ -92,7 +91,6 @@ class Database:
                 str(row["training_scenario_id"]) if row["training_scenario_id"] else None
             ),
             "persona_description": row["persona_description"],
-            "scenario_description": row["scenario_description"],
         }
 
     async def get_session_context_by_room_name(self, room_name: str) -> dict[str, Any] | None:
@@ -108,8 +106,7 @@ class Database:
                     ds.started_at,
                     ds.ended_at,
                     ds.training_scenario_id,
-                    ts.persona_description,
-                    ts.scenario_description
+                    ts.persona_description
                 FROM dialogue_sessions ds
                 LEFT JOIN training_scenarios ts
                     ON ts.id = ds.training_scenario_id
@@ -131,7 +128,6 @@ class Database:
                 str(row["training_scenario_id"]) if row["training_scenario_id"] else None
             ),
             "persona_description": row["persona_description"],
-            "scenario_description": row["scenario_description"],
         }
 
     async def get_training_scenario_id_by_name(self, name: str) -> str | None:

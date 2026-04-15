@@ -4,7 +4,7 @@
   "cases": [
     {
       "id": "compliance_greeting_bank_word",
-      "training_scenario_name": "RKO / novice / level 2",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Ошибка приветствия: менеджер использует слово 'банк' ('из Озон Банка') и склоняет 'Озон'. Клиент реагирует нейтрально, не исправляет, но звучит менее доверительно. Финал: назначена встреча.",
       "turns": [
@@ -88,7 +88,7 @@
     },
     {
       "id": "compliance_post_answer_time_request",
-      "training_scenario_name": "RKO / novice / level 2",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Ошибка стоп-слов: клиент уже ответил 'Да, слушаю', но менеджер спрашивает 'Удобно говорить?'. Клиент не указывает на ошибку, но слегка раздражен. Финал: повторный звонок.",
       "turns": [
@@ -156,7 +156,7 @@
     },
     {
       "id": "compliance_early_qualification",
-      "training_scenario_name": "RKO / novice / level 1",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Запретная квалификация на раннем этапе: менеджер сразу спрашивает 'Вы ИП или ООО?' и систему налогообложения без контекста. Клиент теряется, отвечает уклончиво. Финал: отказ.",
       "turns": [
@@ -208,7 +208,7 @@
     },
     {
       "id": "compliance_novoreg_missing_congrats",
-      "training_scenario_name": "RKO / novice / level 1",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Сценарий новорега: клиент только зарегистрировался, но менеджер не поздравляет и не упоминает 'бесплатный счет'. Сразу переходит к расспросам. Клиент не чувствует себя 'особенным'. Финал: повторный звонок.",
       "turns": [
@@ -268,7 +268,7 @@
     },
     {
       "id": "sales_no_empathy_or_joining",
-      "training_scenario_name": "RKO / busy_owner / level 2",
+      "training_scenario_name": "RKO / expert",
       "product": "rko",
       "intent": "Отсутствие эмпатии и присоединения: менеджер сразу засыпает вопросами без 'Уверен, что подобрали комфортные условия'. Клиент чувствует давление. Финал: назначена встреча (клиент согласился под давлением).",
       "turns": [
@@ -328,7 +328,7 @@
     },
     {
       "id": "sales_closed_questions_chain",
-      "training_scenario_name": "RKO / skeptic / level 2",
+      "training_scenario_name": "RKO / skeptic",
       "product": "rko",
       "intent": "Цепочка закрытых вопросов: менеджер спрашивает только 'Да/Нет' без развития темы. Клиент отвечает моносиллабами, разговор не идет. Финал: отказ.",
       "turns": [
@@ -388,7 +388,7 @@
     },
     {
       "id": "sales_no_summarizing",
-      "training_scenario_name": "RKO / novice / level 3",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Отсутствие резюмирования: менеджер узнал условия клиента, но не сказал 'Значит вы сейчас...', сразу перешел к предложению. Клиент чувствует, что его не слушают. Финал: назначена встреча.",
       "turns": [
@@ -456,7 +456,7 @@
     },
     {
       "id": "knowledge_wrong_tariff_price",
-      "training_scenario_name": "RKO / skeptic / level 2",
+      "training_scenario_name": "RKO / skeptic",
       "product": "rko",
       "intent": "Ошибка знаний: менеджер называет неправильную стоимость тарифа (говорит 990 вместо 490 для Основного или 0 для Начального). Клиент не исправляет, но запоминает цифру. Финал: назначена встреча.",
       "turns": [
@@ -516,7 +516,7 @@
     },
     {
       "id": "knowledge_wrong_limits",
-      "training_scenario_name": "RKO / busy_owner / level 2",
+      "training_scenario_name": "RKO / expert",
       "product": "rko",
       "intent": "Ошибка лимитов: менеджер говорит неверные цифры лимитов (например, 'безлимитно' для Начального или путает цифры). Клиент доверяет, но запоминает неправильно. Финал: назначена встреча.",
       "turns": [
@@ -584,7 +584,7 @@
     },
     {
       "id": "knowledge_wrong_sanctions",
-      "training_scenario_name": "RKO / skeptic / level 3",
+      "training_scenario_name": "RKO / skeptic",
       "product": "rko",
       "intent": "Ошибка по санкциям: менеджер говорит, что 'санкций нет' или 'мы не попадали под санкции', хотя в FAQ сказано про 18-й пакет санкций июля 2025. Клиент переспрашивает, но не спорит. Финал: повторный звонок.",
       "turns": [
@@ -628,7 +628,7 @@
     },
     {
       "id": "knowledge_wrong_currency",
-      "training_scenario_name": "RKO / skeptic / level 2",
+      "training_scenario_name": "RKO / skeptic",
       "product": "rko",
       "intent": "Ошибка про валюту: менеджер говорит, что можно принимать доллары/евро на счет, хотя по FAQ только рубли. Клиент удивляется приятно, но это ложная информация. Финал: назначена встреча.",
       "turns": [
@@ -672,7 +672,7 @@
     },
     {
       "id": "escalation_tax_consultation",
-      "training_scenario_name": "RKO / novice / level 1",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Ошибка эскалации: клиент спрашивает про налоги/декларацию (не про продажу), а менеджер начинает консультировать вместо перевода в поддержку. Финал: отказ (клиент не уверен в компетенции).",
       "turns": [
@@ -712,7 +712,7 @@
     },
     {
       "id": "strong_perfect_novoreg",
-      "training_scenario_name": "RKO / novice / level 1",
+      "training_scenario_name": "RKO / novice",
       "product": "rko",
       "intent": "Идеальный диалог: все compliance-соблюдены, эмпатия, открытые вопросы, резюмирование, правильные знания. Финал: назначена встреча.",
       "turns": [
@@ -772,7 +772,7 @@
     },
     {
       "id": "strong_perfect_skeptic",
-      "training_scenario_name": "RKO / skeptic / level 3",
+      "training_scenario_name": "RKO / skeptic",
       "product": "rko",
       "intent": "Идеальный диалог со скептиком: работа с возражениями, правильная информация про санкции и тарифы. Финал: повторный звонок (клиент просит время подумать, но договоренность есть).",
       "turns": [

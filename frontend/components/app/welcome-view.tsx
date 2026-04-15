@@ -50,12 +50,12 @@ export const WelcomeView = ({
     id: string;
     name: string;
     persona_description: string;
-    scenario_description: string;
+    main_pain: string;
   };
   const emptyForm = {
     name: '',
     persona_description: '',
-    scenario_description: '',
+    main_pain: '',
   };
 
   const [settings, setSettings] = useState<SessionSettings>(DEFAULT_SESSION_SETTINGS);
@@ -115,7 +115,7 @@ export const WelcomeView = ({
       training_scenario_name: selected.name,
       prompt_blocks: {
         persona_description: selected.persona_description,
-        scenario_description: selected.scenario_description,
+        main_pain: selected.main_pain,
       },
     });
   }, [currentUserRole, scenarios, selectedScenarioId]);
@@ -131,13 +131,13 @@ export const WelcomeView = ({
     setForm({
       name: scenario.name,
       persona_description: scenario.persona_description,
-      scenario_description: scenario.scenario_description,
+      main_pain: scenario.main_pain,
     });
     setSaveError(null);
   };
 
   const saveScenario = async () => {
-    if (!form.name.trim() || !form.persona_description.trim() || !form.scenario_description.trim()) {
+    if (!form.name.trim() || !form.persona_description.trim() || !form.main_pain.trim()) {
       setSaveError('Заполните все поля сценария.');
       return;
     }
@@ -232,8 +232,8 @@ export const WelcomeView = ({
                       <div>
                         <strong>Персона (кто клиент):</strong> {selected.persona_description}
                       </div>
-                      <div className="mt-1">
-                        <strong>Ситуация (о чём звонок):</strong> {selected.scenario_description}
+                      <div className="mt-2">
+                        <strong>Основная боль клиента:</strong> {selected.main_pain}
                       </div>
                     </>
                   );
@@ -262,7 +262,7 @@ export const WelcomeView = ({
                   >
                     <div className="font-medium">{scenario.name}</div>
                     <div className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-                      {scenario.scenario_description}
+                      {scenario.persona_description}
                     </div>
                   </button>
                 ))}
@@ -287,7 +287,7 @@ export const WelcomeView = ({
                     />
                   </label>
                   <label className="block text-left text-sm">
-                    Персона — кто клиент (характер, тон; не дублируй тему звонка ниже)
+                    Персона — кто клиент (характер, мотивация, тон)
                     <textarea
                       value={form.persona_description}
                       onChange={(e) =>
@@ -298,14 +298,12 @@ export const WelcomeView = ({
                     />
                   </label>
                   <label className="block text-left text-sm">
-                    Ситуация — о чём звонок (тема, контекст; не дублируй характер из персоны)
+                    Основная боль клиента (раскрывать после квалификации)
                     <textarea
-                      value={form.scenario_description}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, scenario_description: e.target.value }))
-                      }
-                      rows={5}
-                      className="border-border bg-background mt-1 min-h-[120px] w-full resize-y rounded-md border px-3 py-2"
+                      value={form.main_pain}
+                      onChange={(e) => setForm((prev) => ({ ...prev, main_pain: e.target.value }))}
+                      rows={4}
+                      className="border-border bg-background mt-1 min-h-[100px] w-full resize-y rounded-md border px-3 py-2"
                     />
                   </label>
                   {saveError && <p className="text-left text-sm text-red-600">{saveError}</p>}

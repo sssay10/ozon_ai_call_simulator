@@ -115,23 +115,31 @@ async def trigger_judge_session(
     session_id: UUID,
     room_name: str,
     product: str,
+    client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any] | None:
-    """Trigger judge_service for a completed session."""
+    """Trigger judge_service evaluation for a completed session."""
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{judge_service_url.rstrip('/')}/api/judge-session",
-                json={
-                    "session_id": str(session_id),
-                    "room_name": room_name,
-                    "product": product,
-                },
-            )
-            response.raise_for_status()
-            return response.json()
+        request_client = client
+        owns_client = request_client is None
+        if request_client is None:
+            request_client = httpx.AsyncClient(timeout=120.0)
+
+        response = await request_client.get(
+            f"{judge_service_url.rstrip('/')}/api/session-results",
+            params={
+                "session_id": str(session_id),
+                "room_name": room_name,
+                "refresh": "true",
+            },
+        )
+        response.raise_for_status()
+        return response.json()
     except Exception as e:
         logger.exception("trigger_judge_session failed: %s", e)
         return None
+    finally:
+        if owns_client and request_client is not None:
+            await request_client.aclose()
 
 
 def _chat_message_to_text(msg: Any) -> str:

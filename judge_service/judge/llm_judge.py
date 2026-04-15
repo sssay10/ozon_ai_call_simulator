@@ -100,7 +100,6 @@ class LLMJudge:
     async def evaluate(
         self,
         persona_description: str | None,
-        scenario_description: str | None,
         transcript: list[dict[str, Any]],
     ) -> JudgeEvaluation:
         transcript_text = "\n".join(
@@ -113,7 +112,6 @@ class LLMJudge:
         )
         state: JudgeGraphState = {
             "persona_description": persona_description or "",
-            "scenario_description": scenario_description or "",
             "transcript_text": transcript_text,
         }
         t0 = time.perf_counter()

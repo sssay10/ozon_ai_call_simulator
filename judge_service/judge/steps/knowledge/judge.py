@@ -78,12 +78,9 @@ class KnowledgeValidationStepJudge:
         self,
         *,
         persona_description: str,
-        scenario_description: str,
         transcript_text: str,
     ) -> KnowledgeStepOutput:
-        user = self._rag_prefix(transcript_text) + transcript_block(
-            persona_description, scenario_description, transcript_text
-        )
+        user = self._rag_prefix(transcript_text) + transcript_block(persona_description, transcript_text)
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(content=user),

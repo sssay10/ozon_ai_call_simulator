@@ -33,7 +33,6 @@ def build_session_result_response(
     transcript: list[TranscriptTurn],
     training_scenario_id: str | None,
     persona_description: str | None,
-    scenario_description: str | None,
     evaluation: JudgeEvaluation,
     judge_result_saved_at: str | None = None,
 ) -> SessionResultResponse:
@@ -42,8 +41,6 @@ def build_session_result_response(
         details_parts.append(f"training_scenario_id={training_scenario_id}")
     if persona_description:
         details_parts.append(f"persona_description={persona_description}")
-    if scenario_description:
-        details_parts.append(f"scenario_description={scenario_description}")
 
     dumped = evaluation.model_dump()
     details_val = dumped.pop("details", None)
@@ -118,7 +115,6 @@ async def run_session_results(
                 transcript=transcript,
                 training_scenario_id=session_context["training_scenario_id"],
                 persona_description=session_context["persona_description"],
-                scenario_description=session_context["scenario_description"],
                 evaluation=stored.evaluation,
                 judge_result_saved_at=stored.updated_at,
             )
@@ -135,7 +131,6 @@ async def run_session_results(
             t_eval = time.perf_counter()
             llm_result = await judge.evaluate(
                 persona_description=session_context["persona_description"],
-                scenario_description=session_context["scenario_description"],
                 transcript=transcript_rows,
             )
             logger.info(
@@ -178,7 +173,6 @@ async def run_session_results(
         transcript=transcript,
         training_scenario_id=session_context["training_scenario_id"],
         persona_description=session_context["persona_description"],
-        scenario_description=session_context["scenario_description"],
         evaluation=llm_result,
         judge_result_saved_at=saved_times["updated_at"],
     )
