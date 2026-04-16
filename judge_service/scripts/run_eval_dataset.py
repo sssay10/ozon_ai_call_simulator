@@ -38,6 +38,8 @@ CHROMA_PORT = os.getenv("CHROMA_HTTP_PORT", "8005")
 os.environ.setdefault("CHROMA_HTTP_HOST", CHROMA_HOST)
 os.environ.setdefault("CHROMA_HTTP_PORT", str(CHROMA_PORT))
 os.environ.setdefault("JUDGE_SERVICE_ROOT", str(_ROOT))
+os.environ.setdefault("DATABASE_URL", "postgresql://dialogue:dialogue@0.0.0.0:5432/dialogues")
+os.environ.setdefault("INTERNAL_DATABASE_URL", "postgresql://dialogue:dialogue@0.0.0.0:5432/dialogues")
 
 from api.db import Database
 from judge import LLMJudge
