@@ -1,0 +1,10 @@
+# Generated reports — commit selectively when archiving a test run
+*/reports/*.html
+*/reports/*.pdf
+*/reports/*.csv
+*/reports/*.log
+!*/reports/.gitkeep
+
+# macOS
+.DS_Store
+*/.DS_Store

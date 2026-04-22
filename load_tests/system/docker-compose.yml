@@ -1,0 +1,158 @@
+# E2E load test: full system stack (without LiveKit/frontend/agent_service).
+#
+# Includes: postgres, stt_service, tts_service, backend_service,
+#           judge_service, chroma, locust.
+#
+# AgentTurnUser simulates what agent_service does per turn (STT → LLM → TTS)
+# without needing a real LiveKit session.
+#
+# Usage:
+#   ./run.sh                             # default: 30 users, 180s
+#   LOCUST_USERS=50 LOCUST_RUN_TIME=300s ./run.sh
+#
+# LLM step (AgentTurnUser): set OPENROUTER_API_KEY to enable real LLM calls.
+# Without it, a fixed reply phrase is passed to TTS — STT+TTS throughput
+# is still measured correctly.
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_USER: dialogue
+      POSTGRES_PASSWORD: dialogue
+      POSTGRES_DB: dialogues
+    volumes:
+      # init.sql runs first (a-b), seed_test_data.sql runs second (s-t)
+      - ../../agent_service/scripts/init.sql:/docker-entrypoint-initdb.d/a_init.sql:ro
+      - ./seed_test_data.sql:/docker-entrypoint-initdb.d/s_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dialogue -d dialogues"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  chroma:
+    image: chromadb/chroma:latest
+    restart: "no"
+    environment:
+      ANONYMIZED_TELEMETRY: "FALSE"
+
+  stt_service:
+    build:
+      context: ../../stt_service
+      dockerfile: Dockerfile
+    restart: "no"
+    environment:
+      TONE_MODELS_DIR: /models
+    volumes:
+      - ../../stt_service/tone_models:/models:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=4)\""]
+      interval: 15s
+      timeout: 6s
+      retries: 20
+      start_period: 240s
+
+  tts_service:
+    build:
+      context: ../../tts_service
+      dockerfile: Dockerfile
+    restart: "no"
+    environment:
+      TORCH_HOME: /cache/torch
+    volumes:
+      - tts_model_cache:/cache/torch
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=4)\""]
+      interval: 15s
+      timeout: 6s
+      retries: 16
+      start_period: 180s
+
+  judge_service:
+    build:
+      context: ../../judge_service
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chroma:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://dialogue:dialogue@postgres:5432/dialogues
+      JUDGE_SERVICE_ROOT: /app
+      CHROMA_HTTP_HOST: chroma
+      CHROMA_HTTP_PORT: "8000"
+      KNOWLEDGE_RAG: "0"
+      LLM_PROVIDER: openrouter
+      OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_MODEL: "${JUDGE_OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=4)\""]
+      interval: 10s
+      timeout: 6s
+      retries: 10
+
+  backend_service:
+    build:
+      context: ../../backend_service
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://dialogue:dialogue@postgres:5432/dialogues
+      AUTH_JWT_SECRET: dev-auth-secret-change-me-32-bytes
+      AUTH_TOKEN_TTL_HOURS: "24"
+      JUDGE_SERVICE_URL: http://judge_service:8003
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8004/health', timeout=4)\""]
+      interval: 10s
+      timeout: 6s
+      retries: 10
+
+  locust:
+    build:
+      context: .
+      dockerfile: Dockerfile.locust
+    restart: "no"
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py:ro
+      - ./reports:/mnt/locust/reports
+    environment:
+      STT_URL: http://stt_service:8001
+      TTS_URL: http://tts_service:8002
+      BACKEND_URL: http://backend_service:8004
+      JUDGE_URL: http://judge_service:8003
+      LLM_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
+      LLM_API_KEY: "${OPENROUTER_API_KEY:-}"
+      LLM_MODEL: "${AGENT_OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      TEST_EMAIL: loadtest@example.com
+      TEST_PASSWORD: testpass123
+      TEST_SESSION_IDS: "11000000-0000-0000-0000-000000000001,11000000-0000-0000-0000-000000000002,11000000-0000-0000-0000-000000000003"
+    command: >
+      -f /mnt/locust/locustfile.py
+      --headless
+      --users ${LOCUST_USERS:-30}
+      --spawn-rate ${LOCUST_SPAWN_RATE:-5}
+      --run-time ${LOCUST_RUN_TIME:-180s}
+      --html /mnt/locust/reports/report.html
+      --csv /mnt/locust/reports/stats
+    depends_on:
+      stt_service:
+        condition: service_healthy
+      tts_service:
+        condition: service_healthy
+      backend_service:
+        condition: service_healthy
+      judge_service:
+        condition: service_healthy
+
+volumes:
+  tts_model_cache:

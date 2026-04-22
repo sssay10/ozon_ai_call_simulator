@@ -1,0 +1,7 @@
+# Load testing dependencies
+locust==2.32.0
+numpy>=1.24
+
+# HTML → PDF conversion (uses headless Chromium; no system libs required)
+# After install: playwright install chromium
+playwright>=1.44.0

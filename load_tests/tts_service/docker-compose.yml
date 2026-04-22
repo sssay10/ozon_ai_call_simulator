@@ -1,0 +1,55 @@
+# Load test: TTS service + Locust runner.
+#
+# First run: Silero model is downloaded from torch.hub (~100 MB) into the
+# named volume `tts_model_cache`. Subsequent runs reuse the cache — fast startup.
+#
+# Usage (headless, generates HTML + CSV reports in ./reports/):
+#   docker compose up --abort-on-container-exit
+#
+# Override parameters:
+#   LOCUST_USERS=50 LOCUST_RUN_TIME=60s docker compose up --abort-on-container-exit
+
+services:
+
+  tts_service:
+    build:
+      context: ../../tts_service
+      dockerfile: Dockerfile
+    restart: "no"
+    environment:
+      # Cache Silero model in a named volume — survives container restarts
+      TORCH_HOME: /cache/torch
+    volumes:
+      - tts_model_cache:/cache/torch
+    healthcheck:
+      # curl not in image; Python is always available in the uv base image
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=4)\""]
+      interval: 15s
+      timeout: 6s
+      retries: 16
+      # First run: allow time to download Silero from torch.hub (~100 MB)
+      start_period: 180s
+
+  locust:
+    # Plain locust image — no numpy needed for TTS (text in, bytes out)
+    image: locustio/locust:2.32.0
+    restart: "no"
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py:ro
+      - ./reports:/mnt/locust/reports
+    command: >
+      -f /mnt/locust/locustfile.py
+      --host http://tts_service:8002
+      --headless
+      --users ${LOCUST_USERS:-100}
+      --spawn-rate ${LOCUST_SPAWN_RATE:-10}
+      --run-time ${LOCUST_RUN_TIME:-120s}
+      --html /mnt/locust/reports/report.html
+      --csv /mnt/locust/reports/stats
+    depends_on:
+      tts_service:
+        condition: service_healthy
+
+volumes:
+  # Named volume persists the Silero model across container restarts
+  tts_model_cache:

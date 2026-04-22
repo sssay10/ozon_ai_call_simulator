@@ -1,0 +1,50 @@
+# Load test: STT service + Locust runner.
+#
+# Usage (headless, generates HTML + CSV reports in ./reports/):
+#   docker compose up --abort-on-container-exit
+#
+# Override users / duration from the command line:
+#   LOCUST_USERS=50 LOCUST_RUN_TIME=60s docker compose up --abort-on-container-exit
+
+services:
+
+  stt_service:
+    build:
+      context: ../../stt_service
+      dockerfile: Dockerfile
+    restart: "no"
+    environment:
+      TONE_MODELS_DIR: /models
+    volumes:
+      - ../../stt_service/tone_models:/models:ro
+    healthcheck:
+      # curl not available in the image; use Python (always present in the uv base image)
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=4)\""]
+      interval: 15s
+      timeout: 6s
+      retries: 16
+      # kenlm.bin is ~5.4 GB — allow up to 4 min for the pipeline to load from disk
+      start_period: 240s
+
+  locust:
+    build:
+      context: .
+      dockerfile: Dockerfile.locust
+    restart: "no"
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py:ro
+      - ./reports:/mnt/locust/reports
+    command: >
+      -f /mnt/locust/locustfile.py
+      --host http://stt_service:8001
+      --headless
+      --users ${LOCUST_USERS:-100}
+      --spawn-rate ${LOCUST_SPAWN_RATE:-10}
+      --run-time ${LOCUST_RUN_TIME:-120s}
+      --html /mnt/locust/reports/report.html
+      --csv /mnt/locust/reports/stats
+    depends_on:
+      stt_service:
+        condition: service_healthy
+    # Exit code mirrors Locust exit code so CI can detect failures
+    profiles: []
