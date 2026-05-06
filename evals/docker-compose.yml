@@ -1,0 +1,33 @@
+services:
+
+  chroma:
+    image: chromadb/chroma:latest
+    restart: "no"
+    environment:
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma_eval_data:/chroma/chroma
+
+  eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      - chroma
+    volumes:
+      - ./results:/app/evals/results
+    environment:
+      PYTHONPATH: /app
+      CHROMA_HTTP_HOST: chroma
+      CHROMA_HTTP_PORT: "8000"
+      KNOWLEDGE_RAG: "${KNOWLEDGE_RAG:-0}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+      OPENROUTER_BASE_URL: "${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+    command: ["python", "-m", "evals.judge_rag.run"]
+    working_dir: /app
+
+volumes:
+  chroma_eval_data:

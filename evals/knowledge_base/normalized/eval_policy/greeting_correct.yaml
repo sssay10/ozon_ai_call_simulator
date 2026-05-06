@@ -1,0 +1,50 @@
+id: eval.greeting_correct
+version: 1
+doc_type: eval_policy
+rule_kind: reference
+priority: high
+
+title: "Политика оценки greeting_correct"
+
+criterion_tags:
+  - greeting_correct
+
+scenario_tags:
+  - novice_ip_no_account_easy
+  - novice_ip_no_account_medium
+
+applicability:
+  stage:
+    - greeting_block
+  legal_form:
+    - ip
+  channel:
+    - phone
+
+canonical_rule: >
+  Критерий greeting_correct считается выполненным, если менеджер
+  корректно представился и не нарушил запрет на слово "банк"
+  в самопрезентации.
+
+pass_conditions:
+  - "Менеджер представился корректно"
+  - "В приветствии нет слова 'банк' в самопрезентации"
+
+fail_conditions:
+  - "В приветствии есть слово 'банк' в самопрезентации"
+  - "Отсутствует нормальное представление"
+
+null_conditions:
+  - "Транскрипт оборван до приветствия"
+
+retrieval_hints:
+  keywords:
+    - приветствие
+    - представление
+    - банк
+  evidence_window: greeting_block
+  priority_boost: 1.2
+
+source:
+  source_type: manual
+  source_name: eval_design_v1

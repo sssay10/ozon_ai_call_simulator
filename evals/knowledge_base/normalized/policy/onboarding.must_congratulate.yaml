@@ -1,0 +1,47 @@
+id: onboarding.must_congratulate
+version: 1
+doc_type: policy
+rule_kind: required
+priority: high
+
+title: "Нужно поздравить с регистрацией"
+
+criterion_tags:
+  - congratulation_given
+
+scenario_tags:
+  - novice_ip_no_account_easy
+  - novice_ip_no_account_medium
+
+applicability:
+  stage:
+    - greeting_block
+  legal_form:
+    - ip
+  channel:
+    - phone
+
+canonical_rule: >
+  В начале разговора менеджер должен поздравить клиента с успешной
+  регистрацией или передать эквивалентный смысл поздравления.
+
+positive_examples:
+  - "Поздравляю вас с успешной регистрацией."
+  - "Поздравляю, что вы зарегистрировались."
+
+negative_examples:
+  - "Давайте сразу расскажу про счёт."
+  - "У вас есть несколько минут?"
+
+retrieval_hints:
+  keywords:
+    - поздравляю
+    - регистрацией
+    - успешной регистрацией
+    - зарегистрировались
+  evidence_window: greeting_block
+  priority_boost: 1.5
+
+source:
+  source_type: excel
+  source_name: bank_docs.xlsx

@@ -1,3 +1,9 @@
+# Personal notes
+anna-notes.md
+
+# Eval results
+evals/results/*.json
+
 *.onnx
 *.bin
 __pycache__
@@ -10,6 +16,8 @@ __pycache__
 .env*
 data
 
+# Eval knowledge base — raw bank documents (not for repo)
+evals/knowledge_base/raw/
 bank_docs.xlsx
 corp_data.xlsx
 
