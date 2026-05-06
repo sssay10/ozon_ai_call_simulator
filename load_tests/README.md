@@ -8,27 +8,27 @@
 ```
 load_tests/
 ├── requirements.txt          # зависимости для convert_report.py (locust, numpy, playwright)
-├── .gitignore                # исключает сгенерированные отчёты
+├── .gitignore
 │
 ├── stt_service/              # изолированный тест STT (T-one / ONNX)
 │   ├── locustfile.py         # сценарий: POST /recognize с синтетическим аудио
-│   ├── docker-compose.yml    # stt_service + locust
-│   ├── Dockerfile.locust     # locust + numpy
+│   ├── docker-compose.yml
+│   ├── Dockerfile.locust
 │   ├── convert_report.py     # HTML → PDF через playwright
-│   ├── run.sh                # точка входа
+│   ├── run.sh
 │   └── reports/              # HTML, CSV, PDF (в git не коммитятся)
 │
 ├── tts_service/              # изолированный тест TTS (Silero v5)
 │   ├── locustfile.py         # сценарий: POST /synthesize, 3 категории текста
-│   ├── docker-compose.yml    # tts_service + locust
+│   ├── docker-compose.yml
 │   ├── convert_report.py
 │   ├── run.sh
 │   └── reports/
 │
 └── system/                   # E2E тест всего стека
-    ├── locustfile.py         # 3 UserClass: BackendApiUser, AgentTurnUser, JudgeUser
+    ├── locustfile.py         # 3 UserClass: BackendApiUser (30%), AgentTurnUser (60%), JudgeUser (10%)
     ├── docker-compose.yml    # postgres + stt + tts + backend + judge + chroma + locust
-    ├── Dockerfile.locust     # locust + numpy
+    ├── Dockerfile.locust
     ├── seed_test_data.sql    # тестовый пользователь + сессии + кэшированные оценки
     ├── convert_report.py
     ├── run.sh
@@ -48,47 +48,34 @@ docker compose version  # >= 2.20
 
 ### 2. Python 3.10+ (только для convert_report.py)
 
-Устанавливается один раз из корня проекта:
-
 ```bash
 pip install -r load_tests/requirements.txt
-playwright install chromium   # скачивает headless Chromium (~150 МБ), однократно
+playwright install chromium
 ```
 
-### 3. Модели T-one для STT (обязательно для stt_service и system тестов)
+### 3. Модели T-one для STT
 
-Модели **не входят в репозиторий** из-за размера (~5.5 ГБ). Их нужно скачать отдельно и положить в папку `stt_service/tone_models/`.
+Модели **не входят в репозиторий** (~5.5 ГБ). Скачать отдельно и положить в `stt_service/tone_models/` (нужны `model.onnx`, `kenlm.bin` и сопутствующие файлы). Без них `stt_service` не запустится.
 
-Проверь что файлы на месте:
+### 4. Модель Silero TTS
 
-```bash
-ls stt_service/tone_models/
-# должны быть: model.onnx, kenlm.bin и другие файлы модели
-```
-
-Без этих файлов `stt_service` не запустится.
-
-### 4. Модель Silero TTS (для tts_service и system тестов)
-
-Скачивается **автоматически** при первом запуске (~100 МБ) и кэшируется в Docker volume `tts_model_cache`. Последующие запуски используют кэш.
+Скачивается **автоматически** при первом запуске (~100 МБ), кэшируется в Docker volume `tts_model_cache`.
 
 ---
 
 ## Запуск тестов
 
-Все тесты запускаются из соответствующей директории. Параметры переопределяются переменными окружения.
-
-### STT сервис (изолированный)
+### STT сервис
 
 ```bash
 cd load_tests/stt_service
 ./run.sh                                           # 100 пользователей, 120 сек
-LOCUST_USERS=50 LOCUST_RUN_TIME=60s ./run.sh      # кастомные параметры
+LOCUST_USERS=50 LOCUST_RUN_TIME=60s ./run.sh
 ```
 
-**Важно:** первый запуск занимает 3–4 минуты пока загружается `kenlm.bin` (5.4 ГБ). Это нормально — скрипт ждёт автоматически.
+> Первый запуск: 3–4 мин на загрузку `kenlm.bin` (5.4 ГБ) — скрипт ждёт автоматически.
 
-### TTS сервис (изолированный)
+### TTS сервис
 
 ```bash
 cd load_tests/tts_service
@@ -96,28 +83,20 @@ cd load_tests/tts_service
 LOCUST_USERS=50 LOCUST_RUN_TIME=60s ./run.sh
 ```
 
-**Важно:** первый запуск скачивает Silero модель (~100 МБ). Последующие запуски используют кэш — старт занимает ~10 сек.
-
 ### E2E системный тест
-
-Тестирует полный стек: backend_service + STT + TTS + judge_service под одновременной нагрузкой. LLM-шаг опциональный.
 
 ```bash
 cd load_tests/system
 
-# Без LLM (рекомендуется для начала — бесплатно, STT+TTS под нагрузкой)
+# Без LLM (STT + TTS под нагрузкой, бесплатно)
 ./run.sh                                           # 30 пользователей, 180 сек
-LOCUST_USERS=80 LOCUST_RUN_TIME=240s ./run.sh     # стресс-тест
+LOCUST_USERS=80 LOCUST_RUN_TIME=240s ./run.sh
 
-# С реальным LLM (OpenRouter)
+# С реальным LLM
 OPENROUTER_API_KEY=sk-or-... ./run.sh
-OPENROUTER_API_KEY=sk-or-... LOCUST_USERS=50 LOCUST_RUN_TIME=300s ./run.sh
 ```
 
-**Важно:**
-- Нужны файлы T-one модели (см. требования выше)
-- Первый запуск: ~4 мин ожидания старта STT + скачивание Silero. Последующие — ~4 мин только на STT.
-- E2E тест поднимает postgres с чистой БД каждый раз, `seed_test_data.sql` вставляет тестовые данные автоматически.
+> Первый запуск: ~4 мин на старт STT + скачивание Silero. Последующие — ~4 мин только на STT.
 
 ---
 
@@ -135,50 +114,39 @@ OPENROUTER_API_KEY=sk-or-... LOCUST_USERS=50 LOCUST_RUN_TIME=300s ./run.sh
 
 ## Отчёты
 
-После завершения в `reports/` появляются:
+После завершения в `reports/`:
 
 | Файл | Содержимое |
 |---|---|
 | `report.html` | Интерактивный Locust-отчёт с графиками |
-| `report.pdf` | PDF-версия (генерируется через playwright) |
+| `report.pdf` | PDF-версия |
 | `stats_stats.csv` | Агрегированные метрики по эндпоинтам |
-| `stats_stats_history.csv` | Временной ряд: RPS, p50/p95/p99 каждую секунду |
-| `stats_failures.csv` | Все ошибки с деталями |
+| `stats_stats_history.csv` | Временной ряд: RPS, p50/p95/p99 |
+| `stats_failures.csv` | Ошибки с деталями |
 | `stats_exceptions.csv` | Python-исключения в locustfile |
 
-> Отчёты исключены из git (`.gitignore`). Папки `reports/` сохранены через `.gitkeep`.
-
----
-
-## E2E тест — что тестируется
-
-В `system/locustfile.py` три класса пользователей работают одновременно:
-
-| UserClass | Вес | Что делает |
-|---|---|---|
-| `BackendApiUser` | 30% | Логин → список сессий → список сценариев |
-| `AgentTurnUser` | 60% | STT → (LLM опционально) → TTS последовательно |
-| `JudgeUser` | 10% | Запрос результатов оценки звонка из БД |
-
-В отчёте каждый шаг виден отдельно:
-
-```
-[backend] auth/login
-[backend] sessions/list
-[backend] scenarios/list
-[turn] 1_stt/recognize        ← основная нагрузка на STT
-[turn] 2_llm/chat             ← только если OPENROUTER_API_KEY задан
-[turn] 3_tts/synthesize       ← нагрузка на TTS
-[judge] session-results
-```
+> Отчёты исключены из git (`.gitignore`).
 
 ---
 
 ## Известные ограничения
 
 - **LiveKit / WebRTC** не тестируется — требует UDP-медиапоток, несовместим с Locust
-- **LLM в E2E тесте** без OPENROUTER_API_KEY заменяется фиксированной короткой фразой — STT и TTS при этом тестируются корректно, но сквозная задержка не учитывает реальное время LLM
-- **exit code 1** от Locust при наличии любых failures — это нормально если % ошибок мал (< 1%); PDF отчёт всегда генерируется
+- **LLM в E2E тесте** без `OPENROUTER_API_KEY` заменяется фиксированной фразой — STT и TTS тестируются корректно, сквозная задержка без учёта реального LLM
+- **exit code 1** от Locust при наличии failures — нормально, если % ошибок < 1%; PDF-отчёт генерируется всегда
+
+---
+
+## Тестовое окружение
+
+| Параметр | Значение |
+|---|---|
+| Модель | MacBook Air 15", M3, 2024 |
+| Чип | Apple M3 (8-core CPU) |
+| ОЗУ | 16 ГБ |
+| ОС | macOS Sonoma 14.7.1 |
+
+> Результаты актуальны для этого окружения. На серверном железе показатели будут отличаться.
 
 ---
 
@@ -191,4 +159,4 @@ OPENROUTER_API_KEY=sk-or-... LOCUST_USERS=50 LOCUST_RUN_TIME=300s ./run.sh
 | E2E system | 30 users | 0 ошибок, STT p50=260мс, TTS p50=130мс |
 | E2E system | 80 users | STT достиг потолка (p50=2100мс), TTS в норме |
 
-**Вывод:** один инстанс STT достаточен для 80 одновременных пользователей в реальном сценарии (с LLM цикл длиннее, нагрузка на STT ниже).
+**Вывод:** один инстанс STT достаточен для ~80 одновременных пользователей в реальном сценарии (с LLM цикл длиннее — нагрузка на STT ниже).
