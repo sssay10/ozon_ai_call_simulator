@@ -1,6 +1,7 @@
 *.onnx
 *.bin
 __pycache__
+*.egg-info/
 .env.local
 .venv
 .env
@@ -15,3 +16,6 @@ corp_data.xlsx
 
 # judge_service RAG (ONNX embed cache; Chroma data lives in Docker volume chroma_data)
 judge_service/.cache/
+
+# judge_service eval results (generated, not for repo)
+judge_service/eval_dataset/results/*.json
