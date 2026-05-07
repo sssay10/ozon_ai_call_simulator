@@ -11,6 +11,11 @@ Usage (from judge_service/):
 
 Requires: DATABASE_URL, OPENROUTER_API_KEY (or LLM_PROVIDER=ollama)
 Chroma: set CHROMA_HTTP_HOST / CHROMA_HTTP_PORT or defaults (0.0.0.0:8005) are used.
+
+After collecting results, compare with:
+  uv run python eval_dataset/compare_report.py \\
+      --ideal eval_dataset/results/ideal.json \\
+      --results eval_dataset/results/qwen3.json eval_dataset/results/gpt4o_t05.json
 """
 
 from __future__ import annotations
@@ -30,6 +35,9 @@ from typing import Any
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+from dotenv import load_dotenv
+load_dotenv(_ROOT.parent / ".env")
 
 os.environ.setdefault("CHROMA_HTTP_HOST", os.getenv("CHROMA_HTTP_HOST", "0.0.0.0"))
 os.environ.setdefault("CHROMA_HTTP_PORT", os.getenv("CHROMA_HTTP_PORT", "8005"))

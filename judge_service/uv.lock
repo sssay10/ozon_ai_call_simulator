@@ -576,6 +576,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "openpyxl" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -590,6 +591,7 @@ requires-dist = [
     { name = "langgraph", specifier = ">=1.1.4" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38.0" },
 ]
 
